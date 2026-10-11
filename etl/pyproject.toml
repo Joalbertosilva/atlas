@@ -1,0 +1,15 @@
+[project]
+name = "atlas-etl"
+version = "0.1.0"
+description = "ETL do Atlas Eleitoral 2026 (TSE/IBGE -> PostgreSQL)"
+requires-python = ">=3.12"
+
+[project.scripts]
+atlas-etl = "atlas_etl.cli:main"
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["atlas_etl"]

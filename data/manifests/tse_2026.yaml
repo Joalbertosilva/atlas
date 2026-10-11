@@ -1,0 +1,108 @@
+# Manifesto de fontes oficiais usadas pelo Atlas Eleitoral 2026.
+# Todas as URLs foram verificadas com HTTP 200 em 2026-10-11.
+# listed_in_catalog=false: arquivo existe no CDN oficial do TSE (cdn.tse.jus.br) seguindo o
+# padrão de caminhos dos anos anteriores, mas NÃO aparecia na API CKAN do dataset na data
+# da verificação (o dataset resultados-2026 listava apenas os PDFs de totalização).
+# O comando `atlas-etl discover` compara este manifesto com a API CKAN e com HEAD do CDN.
+
+version: 1
+checked_at: "2026-10-11"
+license: "Creative Commons Atribuição (CC-BY), conforme metadados do Portal de Dados Abertos do TSE"
+ufs: [AC, AL, AM, AP, BA, CE, DF, ES, GO, MA, MG, MS, MT, PA, PB, PE, PI, PR, RJ, RN, RO, RR, RS, SC, SE, SP, TO]
+
+resources:
+  - key: municipio_tse_ibge
+    dataset: codigos-oficiais-de-uf-e-municipios-segundo-o-tse-e-o-ibge
+    kind: municipio_tse_ibge
+    url: https://cdn.tse.jus.br/estatistica/sead/odsele/municipio_tse_ibge/municipio_tse_ibge.zip
+    listed_in_catalog: true
+    description: Correspondência oficial entre códigos de município TSE e IBGE.
+
+  - key: consulta_vagas_2026
+    dataset: candidatos-2026
+    kind: consulta_vagas
+    url: https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_vagas/consulta_vagas_2026.zip
+    listed_in_catalog: true
+    description: Vagas por cargo e unidade eleitoral.
+
+  - key: consulta_cand_2026
+    dataset: candidatos-2026
+    kind: consulta_cand
+    url: https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_2026.zip
+    listed_in_catalog: true
+    description: Cadastro de candidaturas (campos pessoais sensíveis não são importados).
+
+  - key: detalhe_votacao_munzona_2026
+    dataset: resultados-2026
+    kind: detalhe_munzona
+    url: https://cdn.tse.jus.br/estatistica/sead/odsele/detalhe_votacao_munzona/detalhe_votacao_munzona_2026.zip
+    listed_in_catalog: false
+    description: Aptos, comparecimento, abstenção, brancos, nulos e válidos por município/zona e cargo.
+
+  - key: votacao_candidato_munzona_2026
+    dataset: resultados-2026
+    kind: munzona_cand
+    url: https://cdn.tse.jus.br/estatistica/sead/odsele/votacao_candidato_munzona/votacao_candidato_munzona_2026.zip
+    listed_in_catalog: false
+    description: Votos nominais por candidatura, município e zona, com destinação e situação de totalização.
+
+  - key: votacao_partido_munzona_2026
+    dataset: resultados-2026
+    kind: munzona_partido
+    url: https://cdn.tse.jus.br/estatistica/sead/odsele/votacao_partido_munzona/votacao_partido_munzona_2026.zip
+    listed_in_catalog: false
+    description: Votos de legenda por partido, município e zona.
+
+  - key: detalhe_votacao_secao_2026
+    dataset: resultados-2026
+    kind: detalhe_secao
+    url: https://cdn.tse.jus.br/estatistica/sead/odsele/detalhe_votacao_secao/detalhe_votacao_secao_2026.zip
+    listed_in_catalog: false
+    description: Comparecimento e categorias de voto por seção e cargo.
+
+  - key: eleitorado_local_votacao_2026
+    dataset: eleitorado-2026
+    kind: locais
+    url: https://cdn.tse.jus.br/estatistica/sead/odsele/eleitorado_locais_votacao/eleitorado_local_votacao_2026.zip
+    listed_in_catalog: true
+    description: Seções eleitorais e respectivos locais de votação (com coordenadas quando informadas).
+
+  - key: pesquisa_eleitoral_2026
+    dataset: pesquisas-eleitorais-2026
+    kind: pesquisas
+    url: https://cdn.tse.jus.br/estatistica/sead/odsele/pesquisa_eleitoral/pesquisa_eleitoral_2026.zip
+    listed_in_catalog: true
+    description: Cadastro de pesquisas eleitorais registradas (sem resultados percentuais).
+
+  - key: relatorio_totalizacao_2026_BR
+    dataset: resultados-2026
+    kind: relatorio_pdf
+    url: https://cdn.tse.jus.br/estatistica/sead/odsele/relatorio_resultado_totalizacao/Relatorio_Resultado_Totalizacao_2026_BR.zip
+    listed_in_catalog: true
+    description: Relatório oficial de totalização (PDF) usado como referência externa de reconciliação.
+
+# Um arquivo por UF + BR (Presidente) + ZZ (exterior).
+templates:
+  - key: "votacao_secao_2026_{ue}"
+    dataset: resultados-2026
+    kind: secao
+    url: "https://cdn.tse.jus.br/estatistica/sead/odsele/votacao_secao/votacao_secao_2026_{ue}.zip"
+    listed_in_catalog: false
+    ues: [BR, ZZ, AC, AL, AM, AP, BA, CE, DF, ES, GO, MA, MG, MS, MT, PA, PB, PE, PI, PR, RJ, RN, RO, RR, RS, SC, SE, SP, TO]
+    description: Votos por seção eleitoral e opção de voto.
+
+geometry:
+  - key: ibge_malha_municipios_minima
+    dataset: ibge-malhas-v3
+    kind: ibge_malha_municipio
+    url: "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&qualidade=minima&intrarregiao=municipio"
+    listed_in_catalog: true
+    license: "IBGE — dados públicos; citar a fonte (IBGE, API de Malhas v3)"
+    description: Malha municipal simplificada (qualidade mínima) em GeoJSON.
+  - key: ibge_malha_ufs_minima
+    dataset: ibge-malhas-v3
+    kind: ibge_malha_uf
+    url: "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&qualidade=minima&intrarregiao=UF"
+    listed_in_catalog: true
+    license: "IBGE — dados públicos; citar a fonte (IBGE, API de Malhas v3)"
+    description: Malha de UFs simplificada.

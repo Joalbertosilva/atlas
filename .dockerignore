@@ -1,0 +1,11 @@
+data/downloads
+data/logs
+data/exports
+.venv
+.git
+.env
+**/__pycache__
+**/*.egg-info
+**/.pytest_cache
+**/.ruff_cache
+frontend

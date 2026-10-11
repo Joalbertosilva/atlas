@@ -1,0 +1,26 @@
+# Segredos locais
+.env
+.env.*
+!.env.example
+
+# Dados nacionais grandes, logs e dumps (nunca versionar)
+data/downloads/
+data/logs/
+data/exports/
+*.dump
+*.sql.gz
+*.zip
+*.part
+
+# Python
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/

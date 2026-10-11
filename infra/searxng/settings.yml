@@ -1,0 +1,59 @@
+# SearXNG interno do Atlas Eleitoral 2026.
+# Imagem: docker.io/searxng/searxng:2026.10.11-ad46ebd7d (digest fixado no compose.yaml).
+# Somente o backend acessa este serviço pela rede interna do Compose; não há porta publicada.
+# secret_key vem de ${SEARXNG_SECRET} (definido no .env local, fora do Git).
+
+use_default_settings:
+  engines:
+    # Apenas mecanismos que não exigem chave nem pagamento. Cada um foi testado em
+    # docs/SEARCH.md; mecanismo bloqueado (CAPTCHA/429) é suspenso pelo próprio
+    # SearXNG e reportado como indisponível pelo backend — nunca contornado.
+    # Teste real em 2026-10-11 (docs/SEARCH.md): google/google news (access denied),
+    # startpage (CAPTCHA) e brave/brave.news (429) bloquearam e foram removidos.
+    keep_only:
+      - duckduckgo
+      - bing
+      - mojeek
+      - wikipedia
+      - duckduckgo news
+      - wikinews
+
+general:
+  instance_name: "Atlas Eleitoral - busca interna"
+  debug: false
+  enable_metrics: true
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "pt-BR"
+  formats:
+    - html
+    - json
+
+server:
+  limiter: false
+  public_instance: false
+  image_proxy: false
+  method: "GET"
+  # sobrescrito por ${SEARXNG_SECRET}
+  secret_key: "definido-por-variavel-de-ambiente"
+
+outgoing:
+  request_timeout: 4.0
+  max_request_timeout: 8.0
+  pool_connections: 20
+  pool_maxsize: 10
+
+ui:
+  static_use_hash: true
+
+engines:
+  - name: bing
+    disabled: false
+  - name: mojeek
+    inactive: false
+  - name: duckduckgo news
+    disabled: false
+  - name: wikinews
+    disabled: false

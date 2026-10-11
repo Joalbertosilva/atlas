@@ -1,0 +1,17 @@
+---
+description: Quando uma funcionalidade pode ser marcada como concluída
+alwaysApply: true
+---
+
+# Conclusão
+
+Uma funcionalidade só está concluída se:
+1. Roda com dados ou configuração reais (não mock de produção).
+2. Tem estado vazio/erro/parcial, não só o caminho feliz.
+3. Documentação em `docs/` reflete o código.
+4. Teste automatizado cobre o invariante principal.
+5. Busca online: consulta real ao SearXNG próprio devolveu resultados no React.
+
+Não marcar "cobertura nacional" sem `atlas-etl coverage` + `atlas-etl reconcile`.
+Não marcar busca concluída por atalho externo (Google/PesqEle).
+Se a carga não terminou, `docs/STATUS.md` lista o que está publicado e o que falta.

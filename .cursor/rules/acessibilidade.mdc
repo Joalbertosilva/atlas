@@ -1,0 +1,14 @@
+---
+description: Acessibilidade da interface (WCAG, alternativa ao mapa)
+globs: frontend/**/*.{tsx,ts,css}
+alwaysApply: false
+---
+
+# Acessibilidade
+
+- `lang="pt-BR"`, skip link, foco visível, labels em todo input.
+- Estados de carregamento/erro em `aria-live`.
+- Mapa sempre com alternativa em tabela.
+- Empate e ausência de dados com texto, não só cor.
+- Contraste em texto e legendas. Sem informação só por cor.
+- Links externos: `rel="noopener noreferrer"` e indicação de nova aba.

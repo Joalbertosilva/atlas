@@ -1,0 +1,17 @@
+---
+description: Integridade dos dados eleitorais — fontes oficiais, sem inferência, sem ano trocado
+alwaysApply: true
+---
+
+# Integridade eleitoral
+
+- Só use arquivos e URLs oficiais do TSE (`cdn.tse.jus.br`, `dadosabertos.tse.jus.br`) e do IBGE (`servicodados.ibge.gov.br`). Não invente URL, candidato, número ou campo.
+- Não apresente dado de outro ano como 2026. Se o arquivo não existir, registre o bloqueio.
+- Número de candidatura não é chave global. Seção isolada não é chave nacional. Código TSE ≠ código IBGE. Nome de local não é identificador. Preserve códigos como texto.
+- Branco, nulo e legenda não são candidaturas. Vice/suplente não são disputa independente.
+- Não infira eleito pelo ranking: só `DS_SIT_TOT_TURNO` da fonte oficial.
+- Não some munzona com seção (são os mesmos votos). Não some aptos/comparecimento entre cargos.
+- Senador 2026: 2 escolhas; total de votos ≠ número de votantes.
+- Não anuncie tempo real: os arquivos são por turno. Mostre data de geração do TSE e data de importação.
+- Exterior (ZZ) entra nos totais nacionais de Presidente e fica fora do mapa.
+- Não declare cobertura nacional sem reconciliação. Distinga objetivo de cobertura carregada.

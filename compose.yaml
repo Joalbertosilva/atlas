@@ -1,0 +1,133 @@
+name: atlas-eleitoral-2026
+
+# Portas publicadas apenas em 127.0.0.1 e escolhidas para não colidir com
+# PostgreSQL local (5432) nem com o Supabase local (54321-54327) já existente.
+#   db        127.0.0.1:55432 -> 5432
+#   api       127.0.0.1:8070  -> 8000
+#   frontend  127.0.0.1:8088  -> 80
+#   searxng   sem porta publicada (somente rede interna "backend")
+
+# Sempre o hostname do serviço Compose — nunca 127.0.0.1 do host (quebra a API).
+x-db-env: &db-env
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-atlas}:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}@db:5432/${POSTGRES_DB:-atlas}
+
+services:
+  db:
+    image: docker.io/postgis/postgis:17-3.5@sha256:01a6a70e41e6c4467c8f55f6063555ed72db2d6662cd0d571040d42eadaeb6f6
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-atlas}
+      POSTGRES_DB: ${POSTGRES_DB:-atlas}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+    command:
+      - postgres
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - work_mem=32MB
+      - -c
+      - maintenance_work_mem=256MB
+      - -c
+      - max_wal_size=4GB
+      - -c
+      - checkpoint_timeout=15min
+      - -c
+      - log_min_duration_statement=-1
+      - -c
+      - log_statement=none
+    volumes:
+      - atlas_pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:55432:5432"
+    networks: [backend]
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  searxng:
+    image: docker.io/searxng/searxng:2026.10.11-ad46ebd7d@sha256:ddd642cae6eac75412938fd846ddbf440a2df029cfeae8a562b8b205f4e35e25
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:?defina SEARXNG_SECRET no .env}
+      SEARXNG_BASE_URL: http://searxng:8080/
+    volumes:
+      - ./infra/searxng/settings.yml:/etc/searxng/settings.yml:ro
+      - atlas_searxng_cache:/var/cache/searxng
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      <<: *db-env
+      SEARXNG_URL: http://searxng:8080
+      SEARCH_TIMEOUT_SECONDS: ${SEARCH_TIMEOUT_SECONDS:-8}
+      SEARCH_CACHE_TTL_SECONDS: ${SEARCH_CACHE_TTL_SECONDS:-600}
+      SEARCH_RATE_LIMIT_PER_MINUTE: ${SEARCH_RATE_LIMIT_PER_MINUTE:-20}
+      API_CACHE_SECRET: ${API_CACHE_SECRET:?defina API_CACHE_SECRET no .env}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8088}
+    depends_on:
+      db: { condition: service_healthy }
+      searxng: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:8070:8000"
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health',timeout=4).status==200 else 1)\""]
+      interval: 15s
+      timeout: 6s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    depends_on:
+      api: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:8088:80"
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # Job ETL sob demanda: docker compose run --rm etl <comando>
+  etl:
+    build:
+      context: .
+      dockerfile: etl/Dockerfile
+    profiles: ["etl"]
+    environment:
+      <<: *db-env
+      ATLAS_DOWNLOAD_DIR: /data/downloads
+      ATLAS_MANIFEST_DIR: /app/data/manifests
+    volumes:
+      - ./data/downloads:/data/downloads
+      - ./data/manifests:/app/data/manifests:ro
+      - ./migrations:/app/migrations:ro
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [backend]
+
+volumes:
+  atlas_pgdata:
+  atlas_searxng_cache:
+
+networks:
+  backend:
+    driver: bridge

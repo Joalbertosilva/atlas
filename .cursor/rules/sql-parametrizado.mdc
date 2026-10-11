@@ -1,0 +1,14 @@
+---
+description: SQL apenas parametrizado; sem endpoint de SQL arbitrário
+globs: backend/**/*.py
+alwaysApply: false
+---
+
+# SQL
+
+- Toda consulta da API usa `sqlalchemy.text` com bind params (`:nome`). Concatenar valor de usuário em SQL é erro.
+- Identificadores de staging no ETL passam por `psycopg.sql.Identifier` após validar `[a-z_][a-z0-9_]*`.
+- Sem endpoint público que execute SQL do cliente.
+- Paginação obrigatória em listagens. `statement_timeout` na engine de leitura (20s).
+- Denominador de percentual sempre explícito na resposta ou em `docs/SQL.md`.
+- `EXPLAIN` só em medições reais; não inventar tempo de consulta.
