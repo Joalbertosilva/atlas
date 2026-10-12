@@ -6,6 +6,7 @@ Se qualquer passo falhar, a transação é desfeita e o recorte publicado anteri
 """
 import json
 import logging
+import re
 import zlib
 from collections.abc import Callable
 from pathlib import Path
@@ -20,6 +21,27 @@ log = logging.getLogger(__name__)
 
 KNOWN_CARGOS = {"1", "3", "5", "6", "7", "8"}
 PROPORTIONAL = ("6", "7", "8")
+
+
+def resource_year(res: Resource) -> int:
+    m = re.search(r"(20\d{2})", res.key)
+    return int(m.group(1)) if m else 2026
+
+
+def year_scope(kind: str, ue: str | None, year: int) -> str:
+    if ue is None:
+        return kind if year == 2026 else f"{kind}:{year}"
+    return f"{kind}:{ue}" if year == 2026 else f"{kind}:{year}:{ue}"
+
+
+def _eleicoes_sql(table: str) -> str:
+    return f"(SELECT DISTINCT staging.code(cd_eleicao) FROM staging.{table})"
+
+
+def _assert_year(cur, table: str, year: int) -> None:
+    found = {r[0] for r in _rows(cur, f"SELECT DISTINCT staging.to_int(ano_eleicao) FROM staging.{table}")}
+    found.discard(None)
+    _check(found <= {year}, f"ANO_ELEICAO {sorted(found)} não coincide com o ano declarado {year}")
 
 
 class ValidationError(RuntimeError):
@@ -193,10 +215,12 @@ CAND_COLS = ["ANO_ELEICAO", "CD_TIPO_ELEICAO", "CD_ELEICAO", "DS_ELEICAO", "DT_E
 
 
 def load_candidates(conn, res, path, ue, *, chunk_rows, force=False):
-    member = _member_by_suffix(path, f"consulta_cand_2026_{ue}.csv")
+    year = resource_year(res)
+    member = _member_by_suffix(path, f"consulta_cand_{year}_{ue}.csv")
 
     def body(conn, run, t):
         with conn.cursor() as cur:
+            _assert_year(cur, t, year)
             _upsert_elections(cur, t)
             cur.execute(f"""
                 INSERT INTO core.candidacy (cd_eleicao, sq_candidato, cd_cargo, sg_ue, nr_candidato, nm_candidato,
@@ -224,8 +248,8 @@ def load_candidates(conn, res, path, ue, *, chunk_rows, force=False):
             runs.publish(cur, run, "consulta_cand", ue, total, n, validation)
         return validation
 
-    return run_import(conn, res, path, member, f"cand:{ue}", body, chunk_rows=chunk_rows, columns=CAND_COLS,
-                      force=force)
+    return run_import(conn, res, path, member, year_scope("cand", ue, year), body, chunk_rows=chunk_rows,
+                      columns=CAND_COLS, force=force)
 
 
 # ---------------------------------------------------------------- Votos por candidatura munzona
@@ -239,11 +263,13 @@ MUNZONA_CAND_COLS = ["ANO_ELEICAO", "CD_TIPO_ELEICAO", "NR_TURNO", "CD_ELEICAO",
 
 
 def load_munzona_cand(conn, res, path, ue, *, chunk_rows, force=False):
-    member = _member_by_suffix(path, f"votacao_candidato_munzona_2026_{ue}.csv")
+    year = resource_year(res)
+    member = _member_by_suffix(path, f"votacao_candidato_munzona_{year}_{ue}.csv")
 
     def body(conn, run, t):
         with conn.cursor() as cur:
             cur.execute("SET LOCAL enable_nestloop = off")
+            _assert_year(cur, t, year)
             _assert_values(cur, t, "sg_ue", {ue}, "SG_UE")
             _assert_values(cur, t, "staging.code(cd_cargo)", KNOWN_CARGOS, "CD_CARGO")
             _assert_values(cur, t, "st_voto_em_transito", {"N", "S"}, "ST_VOTO_EM_TRANSITO")
@@ -292,9 +318,10 @@ def load_munzona_cand(conn, res, path, ue, *, chunk_rows, force=False):
                 ORDER BY c.id
                 ON CONFLICT (cd_eleicao, cd_cargo, sg_ue, kind, nr_votavel, sq_candidato)
                 DO UPDATE SET label = EXCLUDED.label, nr_partido = EXCLUDED.nr_partido""")
-            cur.execute("""
+            cur.execute(f"""
                 DELETE FROM fact.vote_munzona v USING core.vote_option o, core.contest c
-                WHERE v.option_id = o.id AND o.kind = 'candidatura' AND v.contest_id = c.id AND c.sg_ue = %s""", (ue,))
+                WHERE v.option_id = o.id AND o.kind = 'candidatura' AND v.contest_id = c.id AND c.sg_ue = %s
+                  AND c.cd_eleicao IN {_eleicoes_sql(t)}""", (ue,))
             cur.execute(f"""
                 INSERT INTO fact.vote_munzona (contest_id, sg_uf, cd_municipio_tse, nr_zona, option_id,
                                                st_voto_em_transito, qt_votos, qt_votos_validos)
@@ -314,7 +341,7 @@ def load_munzona_cand(conn, res, path, ue, *, chunk_rows, force=False):
             runs.publish(cur, run, "munzona_cand", ue, staged, loaded, validation)
         return validation
 
-    return run_import(conn, res, path, member, f"munzona_cand:{ue}", body, chunk_rows=chunk_rows,
+    return run_import(conn, res, path, member, year_scope("munzona_cand", ue, year), body, chunk_rows=chunk_rows,
                       columns=MUNZONA_CAND_COLS, force=force)
 
 
@@ -325,7 +352,8 @@ PARTIDO_COLS = ["CD_ELEICAO", "NR_TURNO", "CD_CARGO", "SG_UF", "SG_UE", "CD_MUNI
 
 
 def load_munzona_partido(conn, res, path, ue, *, chunk_rows, force=False):
-    member = _member_by_suffix(path, f"votacao_partido_munzona_2026_{ue}.csv")
+    year = resource_year(res)
+    member = _member_by_suffix(path, f"votacao_partido_munzona_{year}_{ue}.csv")
 
     def body(conn, run, t):
         with conn.cursor() as cur:
@@ -339,9 +367,10 @@ def load_munzona_partido(conn, res, path, ue, *, chunk_rows, force=False):
                        staging.code(nr_partido), staging.code(nr_partido), sg_partido || ' (legenda)'
                 FROM staging.{t} WHERE {prop}
                 ON CONFLICT (cd_eleicao, cd_cargo, sg_ue, kind, nr_votavel, sq_candidato) DO NOTHING""")
-            cur.execute("""
+            cur.execute(f"""
                 DELETE FROM fact.vote_munzona v USING core.vote_option o, core.contest c
-                WHERE v.option_id = o.id AND o.kind = 'legenda' AND v.contest_id = c.id AND c.sg_ue = %s""", (ue,))
+                WHERE v.option_id = o.id AND o.kind = 'legenda' AND v.contest_id = c.id AND c.sg_ue = %s
+                  AND c.cd_eleicao IN {_eleicoes_sql(t)}""", (ue,))
             # Legenda: votos digitados para o número do partido (válidos + anulados).
             # QT_VOTOS_NOM_CONVR_LEG_VALIDOS (nominais convertidos) fica registrado na validação/turnout.
             cur.execute(f"""
@@ -372,7 +401,7 @@ def load_munzona_partido(conn, res, path, ue, *, chunk_rows, force=False):
             runs.publish(cur, run, "munzona_partido", ue, staged, loaded, validation)
         return validation
 
-    return run_import(conn, res, path, member, f"munzona_partido:{ue}", body, chunk_rows=chunk_rows,
+    return run_import(conn, res, path, member, year_scope("munzona_partido", ue, year), body, chunk_rows=chunk_rows,
                       columns=PARTIDO_COLS, force=force)
 
 
@@ -389,7 +418,8 @@ _TURNOUT_INT = [c.lower() for c in DETALHE_COLS if c.startswith("QT_")]
 
 
 def load_detalhe_munzona(conn, res, path, ue, *, chunk_rows, force=False):
-    member = _member_by_suffix(path, f"detalhe_votacao_munzona_2026_{ue}.csv")
+    year = resource_year(res)
+    member = _member_by_suffix(path, f"detalhe_votacao_munzona_{year}_{ue}.csv")
 
     def body(conn, run, t):
         with conn.cursor() as cur:
@@ -402,8 +432,9 @@ def load_detalhe_munzona(conn, res, path, ue, *, chunk_rows, force=False):
                       + staging.to_int(qt_eleitores_secoes_nao_instaladas) <> staging.to_int(qt_aptos)
                    OR staging.to_int(qt_comparecimento) > staging.to_int(qt_aptos)""")
             _check(bad == 0, f"{bad} linhas com aptos != comparecimento + abstenções + eleitores de seções não instaladas")
-            cur.execute("DELETE FROM fact.turnout_munzona t USING core.contest c WHERE t.contest_id = c.id AND c.sg_ue = %s",
-                        (ue,))
+            cur.execute(f"""DELETE FROM fact.turnout_munzona t USING core.contest c
+                            WHERE t.contest_id = c.id AND c.sg_ue = %s
+                              AND c.cd_eleicao IN {_eleicoes_sql(t)}""", (ue,))
             ints = ", ".join(f"staging.to_int(s.{c})" for c in _TURNOUT_INT)
             cur.execute(f"""
                 INSERT INTO fact.turnout_munzona (contest_id, sg_uf, cd_municipio_tse, nr_zona, st_voto_em_transito,
@@ -423,18 +454,19 @@ def load_detalhe_munzona(conn, res, path, ue, *, chunk_rows, force=False):
                 FROM staging.{t}
                 CROSS JOIN (VALUES ('branco','95','Voto em branco'), ('nulo','96','Voto nulo')) AS k(kind, nr, label)
                 ON CONFLICT (cd_eleicao, cd_cargo, sg_ue, kind, nr_votavel, sq_candidato) DO NOTHING""")
-            cur.execute("""
+            cur.execute(f"""
                 DELETE FROM fact.vote_munzona v USING core.vote_option o, core.contest c
-                WHERE v.option_id = o.id AND o.kind IN ('branco','nulo') AND v.contest_id = c.id AND c.sg_ue = %s""",
-                        (ue,))
+                WHERE v.option_id = o.id AND o.kind IN ('branco','nulo') AND v.contest_id = c.id AND c.sg_ue = %s
+                  AND c.cd_eleicao IN {_eleicoes_sql(t)}""", (ue,))
             # Nulo = QT_VOTOS_NULOS (digitação nula). Nulos técnicos pertencem a candidaturas (arquivo nominal).
-            cur.execute("""
+            cur.execute(f"""
                 INSERT INTO fact.vote_munzona (contest_id, sg_uf, cd_municipio_tse, nr_zona, option_id,
                                                st_voto_em_transito, qt_votos, qt_votos_validos)
                 SELECT t.contest_id, t.sg_uf, t.cd_municipio_tse, t.nr_zona, o.id, t.st_voto_em_transito,
                        CASE o.kind WHEN 'branco' THEN t.qt_votos_brancos ELSE t.qt_votos_nulos END, 0
                 FROM fact.turnout_munzona t
                 JOIN core.contest c ON c.id = t.contest_id AND c.sg_ue = %s
+                     AND c.cd_eleicao IN {_eleicoes_sql(t)}
                 JOIN core.vote_option o ON o.cd_eleicao = c.cd_eleicao AND o.cd_cargo = c.cd_cargo
                      AND o.sg_ue = c.sg_ue AND o.kind IN ('branco','nulo')""", (ue,))
             staged = _one(cur, f"SELECT count(*) FROM staging.{t}")
@@ -443,7 +475,7 @@ def load_detalhe_munzona(conn, res, path, ue, *, chunk_rows, force=False):
             runs.publish(cur, run, "munzona_detalhe", ue, staged, loaded, validation)
         return validation
 
-    return run_import(conn, res, path, member, f"munzona_detalhe:{ue}", body, chunk_rows=chunk_rows,
+    return run_import(conn, res, path, member, year_scope("munzona_detalhe", ue, year), body, chunk_rows=chunk_rows,
                       columns=DETALHE_COLS, force=force)
 
 

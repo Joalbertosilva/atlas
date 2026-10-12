@@ -35,6 +35,7 @@ Categorias: `general` (web) e `news`. Se um mecanismo cair, o backend devolve `m
 - Cache HMAC em `app.search_cache` (`SEARCH_CACHE_TTL_SECONDS=600`). Acerto de cache informa `fetched_at`; não finge resultado “ao vivo”.
 - Checagens: filtro de domínio em `backend/atlas_api/search/factcheck.py`. Sem rating automático. Sem leitura de página (evita SSRF/paywall).
 - Pesquisas registradas: FTS no PostgreSQL. Sem percentuais (o cadastro não tem).
+- Ficha `/evolucao/{protocolo}`: cadastro TSE + cobertura jornalística (POST `/search/polls/{protocolo}/leitura`). Percentuais só quando o trecho cita nome oficial + `%`. No 1º turno, confronto com a urna. 2º turno abre mesmo sem CSV de votos.
 - PesqEle: a API devolve a [consulta pública do TSE](https://www.tse.jus.br/eleicoes/pesquisa-eleitorais/consulta-as-pesquisas-registradas) + o protocolo na ficha. O detalhe `detalhar.xhtml` exige sessão no sistema; fetch desacompanhado recebe *Access Denied* da Akamai. Não inventamos querystring de protocolo.
 
 ## UI

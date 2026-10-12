@@ -171,6 +171,9 @@ export type RankingRow = {
   nr_votavel: string
   label: string
   candidacy_id: number | null
+  sq_candidato?: string | null
+  cd_eleicao?: string | null
+  sg_ue?: string | null
   nm_candidato: string | null
   sg_partido: string | null
   sg_federacao: string | null
@@ -190,6 +193,10 @@ export type LeaderInfo = {
   color: string | null
   qt_votos_validos: number
   pct_validos: number | null
+  sq_candidato?: string | null
+  cd_eleicao?: string | null
+  sg_ue?: string | null
+  ds_sit_tot_turno?: string | null
 }
 
 export type LeaderMunicipality = {
@@ -257,6 +264,95 @@ export type CompareMunicipality = {
 export type CompareResult = {
   options: RankingRow[]
   municipalities: CompareMunicipality[]
+}
+
+export type PartyYearMeta = {
+  available: boolean
+  reason: string | null
+  ano?: number | null
+  cd_eleicao?: string | null
+  choices_per_voter?: number | null
+  total_validos: number | null
+  source?: SourceMeta | null
+}
+
+export type PartyCompareRow = {
+  nr_partido: string
+  sg_partido_2022: string | null
+  sg_partido_2026: string | null
+  votos_2022: number | null
+  votos_2026: number | null
+  pct_2022: number | null
+  pct_2026: number | null
+  delta_votos: number | null
+  delta_pp: number | null
+  delta_rel_pct: number | null
+  variacao_relativa: 'calculada' | 'indisponivel' | string
+}
+
+export type PartyPlaceRow = {
+  place_id: string
+  sg_uf: string
+  nome: string
+  cd_municipio_tse: string | null
+  cd_municipio_ibge: string | null
+  votos_2022: number | null
+  votos_2026: number | null
+  pct_2022: number | null
+  pct_2026: number | null
+  delta_pp: number | null
+  status: 'comparavel' | 'so_2026' | 'so_2022' | 'ausente' | string
+}
+
+export type PartyCompareResult = {
+  metrica: 'nominais' | 'legenda' | 'ambos' | string
+  nr_partido: string | null
+  level: 'uf' | 'municipio' | string
+  years: { '2022': PartyYearMeta; '2026': PartyYearMeta }
+  parties: PartyCompareRow[]
+  places: PartyPlaceRow[]
+}
+
+export type CrossCompareSide = {
+  qt_votos_validos: number | null
+  pct_validos: number | null
+  qt_total_votos_validos: number | null
+}
+
+export type CrossCompareOption = {
+  side: 'a' | 'b' | string
+  option_id: number
+  ano: number
+  cd_eleicao: string
+  sg_ue?: string | null
+  sq_candidato?: string | null
+  nr_votavel: string
+  label: string
+  nm_candidato: string | null
+  sg_partido: string | null
+  ds_sit_tot_turno: string | null
+  qt_votos_validos: number
+  pct_validos: number | null
+  qt_total_votos_validos: number | null
+  color: string | null
+}
+
+export type CrossComparePlace = {
+  place_id: string
+  sg_uf: string
+  nome: string
+  cd_municipio_tse: string | null
+  cd_municipio_ibge: string | null
+  a: CrossCompareSide
+  b: CrossCompareSide
+  delta_pp: number | null
+  status: 'comparavel' | 'so_a' | 'so_b' | 'ausente' | string
+}
+
+export type CrossCompareResult = {
+  level: 'uf' | 'municipio' | string
+  options: CrossCompareOption[]
+  places: CrossComparePlace[]
 }
 
 export type ZoneRow = {
@@ -411,6 +507,70 @@ export type RegisteredPoll = {
   vr_pesquisa: number | null
   pesqele_url: string | null
   status: string
+  janela?: string | null
+  cd_eleicao?: string | null
+  nm_eleicao?: string | null
+  st_pesquisa_propria?: string | null
+  ds_metodologia_pesquisa?: string | null
+  ds_plano_amostral?: string | null
+  ds_dado_municipio?: string | null
+}
+
+export type PollMencao = {
+  option_id: number
+  label: string
+  nr_votavel: string
+  sg_partido?: string | null
+  color?: string | null
+  pct_mencao: number
+  fonte_url?: string | null
+  trecho?: string | null
+}
+
+export type PollUrnaRow = {
+  option_id: number
+  label: string
+  nr_votavel: string
+  sg_partido?: string | null
+  sq_candidato?: string | null
+  cd_eleicao?: string | null
+  sg_ue?: string | null
+  qt_votos_validos: number
+  pct_validos: number | null
+  ds_sit_tot_turno?: string | null
+  color?: string | null
+}
+
+export type PollConfronto = {
+  option_id: number
+  label: string
+  nr_votavel: string
+  color?: string | null
+  pct_mencao: number
+  pct_urna: number
+  delta_pp: number
+}
+
+export type PollLeitura = {
+  poll: RegisteredPoll
+  janela: string
+  cargo_usado: string | null
+  mencoes: PollMencao[]
+  urna: PollUrnaRow[]
+  confronto: PollConfronto[] | null
+  hits: SearchHit[]
+}
+
+export type PollStats = {
+  total: number
+  institutos: number
+  amostra: number
+  dt_primeiro_turno: string | null
+  dt_segundo_turno: string | null
+  janela: 'todas' | '1' | '2' | string
+  por_mes: Array<{ mes: string; n: number; amostra: number }>
+  por_cargo: Array<{ ds_cargo: string; n: number }>
+  institutos_top: Array<{ instituto: string; n: number; amostra: number }>
 }
 
 export type SearchBody = {
@@ -423,6 +583,8 @@ export type SearchBody = {
   empresa?: string
   de?: string
   ate?: string
+  janela?: 'todas' | '1' | '2'
+  page_size?: number
 }
 
 export type ScopeQuery = {

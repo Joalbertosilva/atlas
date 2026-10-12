@@ -32,11 +32,20 @@ Ainda divergente (não inventar geometria nem somar os dois grãos):
 
 Não declarar “seção nacional reconciliada”. Declarar: arquivos `secao:*` publicados; totais oficiais do painel vêm de munzona.
 
+## Frontend (2026-10-12)
+
+- Marca: favicon/A e wordmark em PNG **transparente** (sem caixa preta). Header usa o A + texto “Eleição 2026”; a página inicial leva o título **Eleição 2026** (Comparar fica só no menu).
+- Fotos 2026: portal de resultados. Fotos 2022: ZIP oficial do CDN (`foto_cand2022_{UE}_div.zip`) via `/api/photos`. Sem arquivo → iniciais.
+- Comparar 2022×2026 vive em `/comparar`. `/historico` redireciona para a aba de partidos.
+- Mapa 2D colorido (SVG). 3D: MapLibre com câmera inclinada e extrusão da malha, mesma cor de vencedor. Brasil → clique no estado (ou filtro de UF) abre a malha municipal com a cor de quem venceu em cada município; zoom aproxima as fronteiras; clique ou Enter na busca entra no município (ficha no mesmo recorte, vizinhos continuam pintados). Governador e demais cargos estaduais: mapa nacional por UF, clique abre o recorte.
+- Pesquisas: cadastro TSE (sem percentuais). Cada protocolo abre ficha + cobertura pública e, no 1º turno, confronto cobertura × urna. O 2º turno já é acessível (38 registros após 4/10); a urna do 2º ainda não foi publicada. Cores: PT vermelho, PL amarelo.
+- Cores: PT vermelho, PL amarelo — mapa, gráficos e tabelas usam a cor do partido, não a ordem do ranking.
+
 ## Fora do escopo agora
 
 - 2º turno: o TSE ainda não publicou os CSVs; o endpoint aceita `turno=2` quando existirem.
 - LGPD: responsável/contato só com dado real — não inventar.
-- Polimento visual grande da UI: adiado a pedido.
+- Polimento visual grande da UI: feito em 12/10 (mapa MapLibre, fotos, jargão técnico fora da UI).
 
 ## Como subir de novo (não apague o volume)
 

@@ -7,6 +7,8 @@ import {
   TIE_LABEL,
   fillForLeaderRow,
   leaderLegendItems,
+  sequentialFill,
+  sequentialStops,
 } from './mapColors'
 import type { LeaderLegend } from '../api/types'
 
@@ -18,6 +20,14 @@ test('empate e sem dados usam cores fixas na função de preenchimento', () => {
   expect(fillForLeaderRow(undefined)).toBe(NO_DATA_COLOR)
   expect(TIE_COLOR).toBe('#374151')
   expect(NO_DATA_COLOR).toBe('#e5e7eb')
+})
+
+test('escala sequencial usa a cor da candidatura, não um azul genérico', () => {
+  const yellow = '#F5C400'
+  const stops = sequentialStops(yellow)
+  expect(stops.at(-1)?.toLowerCase()).toBe(yellow.toLowerCase())
+  expect(sequentialFill(90, [{ min: 0, max: 20 }, { min: 20, max: 40 }, { min: 40, max: 60 }, { min: 60, max: 80 }, { min: 80, max: 100 }], yellow).toLowerCase()).toBe(yellow.toLowerCase())
+  expect(sequentialFill(null, [{ min: 0, max: 100 }], yellow)).toBe(NO_DATA_COLOR)
 })
 
 test('legenda do mapa inclui Empate e Sem dados', () => {

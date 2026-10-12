@@ -2,10 +2,12 @@
 import json
 import threading
 
-from flask import Response, current_app
+from flask import Response, current_app, send_file
 from flask_smorest import Blueprint
 
 from ..db import fetch_all, scalar, set_statement_timeout
+from ..errors import ApiError
+from ..photos import PhotoNotFound, PhotoUnavailable, fetch_official_photo
 from ..schemas import CandidaciesArgs, GeometryArgs, MunicipalitiesArgs
 from ..scope import envelope, paging
 
@@ -240,3 +242,15 @@ def geometry(args):
     return Response(body, mimetype="application/geo+json",
                     headers={"Cache-Control": "public, max-age=86400",
                              "X-Source": "IBGE API de Malhas v3 (qualidade minima)"})
+
+
+@blp.route("/photos/<int:ano>/<string:ue>/<string:sq>")
+def candidate_photo(ano, ue, sq):
+    """JPEG oficial do TSE. 2022: ZIP `foto_cand2022_{UE}_div.zip` no CDN. 2026: use o portal de resultados."""
+    try:
+        path, mime = fetch_official_photo(int(ano), str(ue).upper(), str(sq))
+    except PhotoNotFound as exc:
+        raise ApiError(404, str(exc)) from exc
+    except PhotoUnavailable as exc:
+        raise ApiError(503, str(exc)) from exc
+    return send_file(path, mimetype=mime, max_age=86400, conditional=True)

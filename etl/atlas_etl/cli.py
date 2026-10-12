@@ -92,19 +92,21 @@ def cmd_list(settings, args) -> int:
     return 0
 
 
-def _select(settings, kind: str | None, ue: str | None) -> list[Resource]:
+def _select(settings, kind: str | None, ue: str | None, ano: int | None = None) -> list[Resource]:
     out = []
     for r in _resources(settings).values():
         if kind and r.kind != kind:
             continue
         if ue and r.ue and r.ue != ue:
             continue
+        if ano is not None and str(ano) not in r.key and not r.kind.startswith("ibge") and r.key != "municipio_tse_ibge":
+            continue
         out.append(r)
     return out
 
 
 def cmd_download(settings, args) -> int:
-    res = _select(settings, args.kind, args.ue)
+    res = _select(settings, args.kind, args.ue, getattr(args, "ano", None))
     results = download_many(res, settings.download_dir, timeout=settings.http_timeout, retries=settings.http_retries,
                             concurrency=settings.download_concurrency, force=args.force)
     for r in results:
@@ -128,7 +130,7 @@ def cmd_inspect(settings, args) -> int:
     return 0
 
 
-def _import_kind(conn, settings, kind: str, ue: str | None, force: bool) -> list[dict]:
+def _import_kind(conn, settings, kind: str, ue: str | None, force: bool, ano: int = 2026) -> list[dict]:
     R = _resources(settings)
     ck = settings.chunk_rows
     out: list[dict] = []
@@ -147,6 +149,8 @@ def _import_kind(conn, settings, kind: str, ue: str | None, force: bool) -> list
         r, p = need("ibge_malha_ufs_minima")
         out.append(loaders.load_geometry(conn, r, p, "uf", force=force))
     elif kind == "consulta_vagas":
+        if ano != 2026:
+            raise SystemExit("consulta_vagas de 2022 não é importada: apagaria as vagas de 2026.")
         r, p = need("consulta_vagas_2026")
         out.append(loaders.load_vagas(conn, r, p, chunk_rows=ck, force=force))
     elif kind == "pesquisas":
@@ -156,13 +160,15 @@ def _import_kind(conn, settings, kind: str, ue: str | None, force: bool) -> list
         out.append({"scope": "aggregates", "status": "rebuilt", **aggregates.rebuild(conn)})
     else:
         table = {
-            "consulta_cand": ("consulta_cand_2026", loaders.load_candidates, UES),
-            "detalhe_munzona": ("detalhe_votacao_munzona_2026", loaders.load_detalhe_munzona, UES),
-            "munzona_cand": ("votacao_candidato_munzona_2026", loaders.load_munzona_cand, UES),
-            "munzona_partido": ("votacao_partido_munzona_2026", loaders.load_munzona_partido, UES),
+            "consulta_cand": (f"consulta_cand_{ano}", loaders.load_candidates, UES),
+            "detalhe_munzona": (f"detalhe_votacao_munzona_{ano}", loaders.load_detalhe_munzona, UES),
+            "munzona_cand": (f"votacao_candidato_munzona_{ano}", loaders.load_munzona_cand, UES),
+            "munzona_partido": (f"votacao_partido_munzona_{ano}", loaders.load_munzona_partido, UES),
             "locais": ("eleitorado_local_votacao_2026", loaders.load_locais, UFS + ["ZZ"]),
             "detalhe_secao": ("detalhe_votacao_secao_2026", loaders.load_detalhe_secao, UES + ["ZZ"]),
         }
+        if kind in ("secao", "locais", "detalhe_secao") and ano != 2026:
+            raise SystemExit(f"{kind} de {ano} não está no manifesto deste projeto (comparativo usa munzona).")
         if kind == "secao":
             for u in [ue] if ue else UES + ["ZZ"]:
                 r, p = need(f"votacao_secao_2026_{u}")
@@ -183,7 +189,7 @@ def _import_kind(conn, settings, kind: str, ue: str | None, force: bool) -> list
 def cmd_import(settings, args) -> int:
     conn = db.connect(settings.database_url)
     t0 = time.time()
-    results = _import_kind(conn, settings, args.kind, args.ue, args.force)
+    results = _import_kind(conn, settings, args.kind, args.ue, args.force, getattr(args, "ano", 2026))
     for r in results:
         print(json.dumps(r, ensure_ascii=False, default=str))
     print(f"tempo total: {time.time() - t0:.1f}s")
@@ -301,6 +307,7 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("download", help="baixa recursos (concorrência limitada, retry e retomada)")
     s.add_argument("--kind")
     s.add_argument("--ue")
+    s.add_argument("--ano", type=int, choices=[2022, 2026])
     s.add_argument("--force", action="store_true")
     s = sub.add_parser("inspect", help="mostra membros, cabeçalho e primeira linha de um recurso")
     s.add_argument("key")
@@ -308,6 +315,8 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("import", help="importa um tipo (opcionalmente um recorte --ue)")
     s.add_argument("kind", choices=KINDS)
     s.add_argument("--ue", choices=UES + ["ZZ"])
+    s.add_argument("--ano", type=int, choices=[2022, 2026], default=2026,
+                   help="2022 usa chaves de publicação ano-qualificadas e não substitui 2026")
     s.add_argument("--force", action="store_true", help="reimporta mesmo se idêntico ao publicado")
     s = sub.add_parser("import-all", help="pipeline nacional completo, na ordem de dependência")
     s.add_argument("--skip", nargs="*", choices=KINDS)

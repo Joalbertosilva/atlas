@@ -46,7 +46,10 @@ def create_app(config: Config | None = None, search_transport=None) -> Flask:
     def _headers(resp):
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         resp.headers.setdefault("Referrer-Policy", "no-referrer")
-        resp.headers.setdefault("Cache-Control", "no-store")
+        if resp.mimetype and resp.mimetype.startswith("image/"):
+            resp.headers["Cache-Control"] = "public, max-age=86400"
+        else:
+            resp.headers.setdefault("Cache-Control", "no-store")
         if resp.mimetype in ("application/json", "application/geo+json", "text/csv"):
             resp.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
         return resp

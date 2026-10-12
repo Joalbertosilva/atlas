@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react'
 import type { GeometryProperties } from '../api/types'
-import { NO_DATA_COLOR } from '../lib/mapColors'
+import { MAP_NO_DATA } from '../lib/mapColors'
 
-type PaintedProps = GeometryProperties & { fill: string }
+export type PaintedProps = GeometryProperties & { fill: string; atlasFill?: string; tooltip?: string }
 
 type Props = {
   collection: GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon, PaintedProps>
-  onSelectMunicipio?: (tse: string, uf: string) => void
+  onSelectMunicipio?: (tse: string, uf: string, ibge?: string) => void
   onSelectUf?: (uf: string) => void
+  highlightId?: string | null
+  tilt?: boolean
 }
 
 const WIDTH = 900
@@ -68,7 +70,7 @@ function pathOf(
   return parts.join(' ')
 }
 
-export default function SvgChoropleth({ collection, onSelectMunicipio, onSelectUf }: Props) {
+export default function SvgChoropleth({ collection, onSelectMunicipio, onSelectUf, highlightId, tilt }: Props) {
   const [hover, setHover] = useState<string>('')
   const bounds = useMemo(() => boundsOf(collection), [collection])
 
@@ -81,31 +83,41 @@ export default function SvgChoropleth({ collection, onSelectMunicipio, onSelectU
   }
 
   return (
-    <div className="space-y-2">
+    <div className="min-w-0 space-y-2">
+      <div className={`overflow-hidden rounded-2xl border border-slate-200 bg-[#b9cce3] ${tilt ? 'px-8 py-16 sm:px-12 sm:py-20' : ''}`}>
       <svg
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        className="h-auto w-full max-h-[36rem] rounded-lg border border-slate-200 bg-slate-50"
+        className={`h-auto w-full max-h-[32rem] ${tilt ? 'origin-center drop-shadow-2xl [transform:perspective(1600px)_rotateX(36deg)_rotateZ(-10deg)_scale(0.92)]' : ''}`}
         role="img"
         aria-label="Mapa de resultados"
       >
         {collection.features.map((feature) => {
           const props = feature.properties
           const key = String(feature.id ?? props.cd_municipio_ibge ?? props.sg_uf)
-          const label = props.nm_municipio
-            ? `${props.nm_municipio} (${props.sg_uf ?? ''})`
-            : (props.nm_uf ?? props.sg_uf ?? key)
+          const label = props.tooltip
+            || (props.nm_municipio
+              ? `${props.nm_municipio} (${props.sg_uf ?? ''})`
+              : (props.nm_uf ?? props.sg_uf ?? key))
+          const selected = Boolean(highlightId && (key === highlightId || props.cd_municipio_ibge === highlightId || props.sg_uf === highlightId))
           return (
             <path
               key={key}
               d={pathOf(feature.geometry, bounds)}
-              fill={props.fill || NO_DATA_COLOR}
-              stroke="#334155"
-              strokeWidth={0.8}
-              className="cursor-pointer hover:opacity-90"
+              fill={props.fill || MAP_NO_DATA}
+              stroke={selected ? '#0b1b33' : '#ffffff'}
+              strokeWidth={selected ? 2 : 0.6}
+              opacity={1}
+              className="cursor-pointer"
               onMouseEnter={() => setHover(label)}
               onMouseLeave={() => setHover('')}
               onClick={() => {
-                if (props.cd_municipio_tse && props.sg_uf) onSelectMunicipio?.(props.cd_municipio_tse, props.sg_uf)
+                if (props.cd_municipio_tse && props.sg_uf) {
+                  onSelectMunicipio?.(
+                    props.cd_municipio_tse,
+                    props.sg_uf,
+                    props.cd_municipio_ibge ? String(props.cd_municipio_ibge) : undefined,
+                  )
+                }
                 else if (props.sg_uf) onSelectUf?.(props.sg_uf)
               }}
             >
@@ -114,8 +126,9 @@ export default function SvgChoropleth({ collection, onSelectMunicipio, onSelectU
           )
         })}
       </svg>
+      </div>
       <p className="text-sm text-slate-700" aria-live="polite">
-        {hover || 'Passe o mouse sobre um estado. Clique para ver os municípios.'}
+        {hover || 'Passe o mouse sobre o território. Clique para abrir o recorte.'}
       </p>
     </div>
   )

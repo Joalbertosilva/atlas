@@ -3,6 +3,7 @@ import type { Office, State } from '../api/types'
 import { useMunicipalities, useOffices, useStates } from '../hooks/useAtlasQueries'
 import { useScopeParams } from '../hooks/useScopeParams'
 import { needsUf } from '../lib/scope'
+import { ActiveFilters } from './ActiveFilters'
 import { ErrorBlock, Skeleton } from './QueryState'
 
 export function Filters({ showMode = false }: { showMode?: boolean }) {
@@ -24,19 +25,23 @@ export function Filters({ showMode = false }: { showMode?: boolean }) {
 
   return (
     <form
-      className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4"
+      className="grid min-w-0 gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-5"
       onSubmit={(event) => event.preventDefault()}
+      aria-label="Filtros do recorte"
     >
-      {offices.isError && <div className="sm:col-span-2 lg:col-span-4"><ErrorBlock error={offices.error} /></div>}
-      {states.isError && <div className="sm:col-span-2 lg:col-span-4"><ErrorBlock error={states.error} /></div>}
+      <div className="sm:col-span-2 lg:col-span-5">
+        <ActiveFilters />
+      </div>
+      {offices.isError && <div className="sm:col-span-2 lg:col-span-5"><ErrorBlock error={offices.error} /></div>}
+      {states.isError && <div className="sm:col-span-2 lg:col-span-5"><ErrorBlock error={states.error} /></div>}
 
-      <label className="block text-sm">
+      <label className="block min-w-0 text-sm">
         <span className="mb-1 block font-medium text-slate-800">Cargo</span>
         {offices.isPending ? (
           <Skeleton className="h-10" />
         ) : (
           <select
-            className="w-full rounded-md border border-slate-300 bg-white px-2 py-2"
+            className="field"
             value={scope.cargo}
             onChange={(event) =>
               update({
@@ -61,9 +66,21 @@ export function Filters({ showMode = false }: { showMode?: boolean }) {
       </label>
 
       <label className="block text-sm">
+        <span className="mb-1 block font-medium text-slate-800">Ano</span>
+        <select
+          className="field"
+          value={String(scope.ano)}
+          onChange={(event) => update({ ano: event.target.value === '2022' ? 2022 : 2026, option: '' })}
+        >
+          <option value="2026">2026</option>
+          <option value="2022">2022</option>
+        </select>
+      </label>
+
+      <label className="block text-sm">
         <span className="mb-1 block font-medium text-slate-800">Turno</span>
         <select
-          className="w-full rounded-md border border-slate-300 bg-white px-2 py-2"
+          className="field"
           value={String(scope.turno)}
           onChange={(event) => update({ turno: Number(event.target.value) === 2 ? 2 : 1 })}
         >
@@ -72,17 +89,17 @@ export function Filters({ showMode = false }: { showMode?: boolean }) {
         </select>
       </label>
 
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium text-slate-800">UF{needsUf(scope.cargo) ? ' (obrigatória)' : ''}</span>
+      <label className="block min-w-0 text-sm">
+        <span className="mb-1 block font-medium text-slate-800">UF</span>
         {states.isPending ? (
           <Skeleton className="h-10" />
         ) : (
           <select
-            className="w-full rounded-md border border-slate-300 bg-white px-2 py-2"
+            className="field"
             value={scope.uf}
             onChange={(event) => update({ uf: event.target.value, municipio: '', option: '' })}
           >
-            <option value="">{needsUf(scope.cargo) ? 'Selecione a UF' : 'Brasil'}</option>
+            <option value="">{needsUf(scope.cargo) ? 'Todos os estados' : 'Brasil'}</option>
             {stateList.map((state) => (
               <option key={state.sg_uf} value={state.sg_uf}>
                 {state.nm_uf} ({state.sg_uf})
@@ -91,12 +108,15 @@ export function Filters({ showMode = false }: { showMode?: boolean }) {
             ))}
           </select>
         )}
+        {needsUf(scope.cargo) && !scope.uf && (
+          <p className="mt-1 text-xs text-slate-500">Sem UF, o mapa mostra quem teve mais votos válidos em cada estado.</p>
+        )}
       </label>
 
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium text-slate-800">Município (código TSE)</span>
+      <label className="block min-w-0 text-sm">
+        <span className="mb-1 block font-medium text-slate-800">Município</span>
         <input
-          className="w-full rounded-md border border-slate-300 px-2 py-2"
+          className="field"
           value={munQ || scope.municipio}
           onChange={(event) => {
             const value = event.target.value
@@ -104,7 +124,7 @@ export function Filters({ showMode = false }: { showMode?: boolean }) {
             if (/^\d{5}$/.test(value)) update({ municipio: value })
             if (!value) update({ municipio: '' })
           }}
-          placeholder="Nome ou código de 5 dígitos"
+          placeholder="Buscar pelo nome"
           autoComplete="off"
         />
         {scope.municipio && (
@@ -115,7 +135,7 @@ export function Filters({ showMode = false }: { showMode?: boolean }) {
       </label>
 
       {debounced.length >= 2 && (
-        <div className="sm:col-span-2 lg:col-span-4">
+        <div className="sm:col-span-2 lg:col-span-5">
           {municipalities.isPending && <p className="text-xs text-slate-500">Buscando municípios…</p>}
           {municipalities.isError && <ErrorBlock error={municipalities.error} />}
           {municipalities.data && (
@@ -130,7 +150,7 @@ export function Filters({ showMode = false }: { showMode?: boolean }) {
                       setMunQ(`${mun.nm_municipio} (${mun.cd_municipio_tse})`)
                     }}
                   >
-                    {mun.nm_municipio} — {mun.sg_uf} · TSE {mun.cd_municipio_tse}
+                    {mun.nm_municipio} — {mun.sg_uf}
                     {mun.is_exterior ? ' · exterior' : ''}
                   </button>
                 </li>
@@ -144,7 +164,7 @@ export function Filters({ showMode = false }: { showMode?: boolean }) {
       )}
 
       {showMode && (
-        <fieldset className="sm:col-span-2 lg:col-span-4">
+        <fieldset className="sm:col-span-2 lg:col-span-5">
           <legend className="mb-1 text-sm font-medium text-slate-800">Modo do mapa</legend>
           <div className="flex flex-wrap gap-3 text-sm">
             <label className="inline-flex items-center gap-1.5">

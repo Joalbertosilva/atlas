@@ -25,6 +25,16 @@ Nominais convertidos à legenda (`QT_VOTOS_NOM_CONVR_LEG_VALIDOS`) estão no det
 
 `rank()` por votos válidos; `row_number()` desempata por número só para escolher o rótulo do 1º. `tie=true` quando mais de uma candidatura compartilha o máximo.
 
+Mapa nacional (`level=uf`): o mesmo critério sobre `agg.result_state` (totais oficiais da UF). Não some líder municipal para “inventar” o vencedor do estado. ZZ fora do mapa.
+
+## Candidaturas entre anos
+
+`/results/cross-compare` compara dois `option_id` (mesmo cargo/UE, anos independentes). `%` = votos válidos da opção / `qt_total_votos_validos` do recorte **daquele ano**. `sq_candidato` não casa pessoas entre 2022 e 2026.
+
+## Partido 2022 × 2026
+
+`/results/party-compare` agrupa `agg.result_*` por `nr_partido` (nominais via candidatura; legenda via `kind=legenda`). `%` = votos da métrica / `qt_total_votos_validos`. `delta_pp` = pct_2026 − pct_2022. Variação relativa só se votos_2022 > 0. Ano vem de `core.election.ano_eleicao`; 2022 ausente ⇒ `available=false`.
+
 ## Senador
 
 `choices_per_voter=2` quando `core.seat.qt_vaga=2`. Não use `qt_votos` como número de pessoas.

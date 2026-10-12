@@ -1,106 +1,233 @@
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { useMemo } from 'react'
+import { useSearchParams } from 'react-router'
+import { Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { CandidatePhoto } from '../components/CandidatePhoto'
 import { Filters } from '../components/Filters'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../components/QueryState'
 import { SourceMeta } from '../components/SourceMeta'
-import { useCompare, useRanking } from '../hooks/useAtlasQueries'
+import { Button } from '../components/Ui'
+import { useCrossCompare, useRanking } from '../hooks/useAtlasQueries'
 import { useScopeParams } from '../hooks/useScopeParams'
-import { canFetchResults, needsUf } from '../lib/scope'
-import { formatInt, formatPctShort } from '../lib/format'
+import { formatInt, formatPctShort, formatSigned } from '../lib/format'
+import { canFetchResults, needsUf, parseAno, type ScopeState } from '../lib/scope'
+import PartyComparePanel from './HistoricoPage'
+
+function setParam(params: URLSearchParams, key: string, value: string) {
+  if (!value) params.delete(key)
+  else params.set(key, value)
+}
+
+function CandidatePicker({
+  label,
+  ano,
+  optionId,
+  rankingAno,
+  scope,
+  onAno,
+  onOption,
+}: {
+  label: string
+  ano: 2022 | 2026
+  optionId: string
+  rankingAno: 2022 | 2026
+  scope: ScopeState
+  onAno: (ano: 2022 | 2026) => void
+  onOption: (id: string) => void
+}) {
+  const ranking = useRanking({ ...scope, ano: rankingAno, municipio: '', option: '' }, 'candidatura', 1, 80)
+  return (
+    <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" aria-label={label}>
+      <h2 className="mb-3 text-sm font-semibold text-atlas-900">{label}</h2>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium">Ano</span>
+          <select className="field" value={String(ano)} onChange={(event) => onAno(event.target.value === '2022' ? 2022 : 2026)}>
+            <option value="2026">2026</option>
+            <option value="2022">2022</option>
+          </select>
+        </label>
+        <label className="block text-sm sm:col-span-2">
+          <span className="mb-1 block font-medium">Candidatura</span>
+          {ranking.isPending && <p className="text-xs text-slate-500">Carregando opções de {ano}…</p>}
+          {ranking.isError && <ErrorBlock error={ranking.error} />}
+          <select className="field" value={optionId} onChange={(event) => onOption(event.target.value)}>
+            <option value="">Selecione</option>
+            {(ranking.data?.data ?? [])
+              .filter((row) => row.kind === 'candidatura')
+              .map((row) => (
+                <option key={row.option_id} value={String(row.option_id)}>
+                  {ano} · {row.nr_votavel} — {row.label} ({row.sg_partido ?? 's/ partido'})
+                </option>
+              ))}
+          </select>
+        </label>
+      </div>
+    </section>
+  )
+}
 
 export default function ComparePage() {
   const { scope, update } = useScopeParams()
-  const ranking = useRanking({ ...scope, municipio: '' }, 'candidatura', 1, 80)
-  const selected = scope.option.split(',').filter(Boolean).slice(0, 3)
-  const compare = useCompare(scope, selected.join(','))
+  const [params, setParams] = useSearchParams()
+  const painel = params.get('painel') === 'partidos' ? 'partidos' : 'candidaturas'
+  const aAno = parseAno(params.get('a_ano') || '2026')
+  const bAno = parseAno(params.get('b_ano') || '2022')
+  const aOption = params.get('a_option') || ''
+  const bOption = params.get('b_option') || ''
   const ready = canFetchResults({ ...scope, municipio: '' })
+  const ids = [aOption, bOption].filter(Boolean).join(',')
+  const cross = useCrossCompare(scope, aOption && bOption ? `${aOption},${bOption}` : '')
 
-  function toggle(id: string) {
-    const set = new Set(selected)
-    if (set.has(id)) set.delete(id)
-    else if (set.size < 3) set.add(id)
-    update({ option: [...set].join(',') })
+  function patchCompare(next: { painel?: string; a_ano?: string; b_ano?: string; a_option?: string; b_option?: string }) {
+    const copy = new URLSearchParams(params)
+    if (next.painel !== undefined) setParam(copy, 'painel', next.painel === 'candidaturas' ? '' : next.painel)
+    if (next.a_ano !== undefined) setParam(copy, 'a_ano', next.a_ano === '2026' ? '' : next.a_ano)
+    if (next.b_ano !== undefined) setParam(copy, 'b_ano', next.b_ano === '2022' ? '' : next.b_ano)
+    if (next.a_option !== undefined) setParam(copy, 'a_option', next.a_option)
+    if (next.b_option !== undefined) setParam(copy, 'b_option', next.b_option)
+    setParams(copy, { replace: true })
   }
 
-  const chartData = (compare.data?.data.options ?? []).map((opt) => ({
-    name: opt.label,
-    votos: opt.qt_votos_validos,
-    fill: opt.color || '#1d4ed8',
-  }))
+  const chartData = useMemo(() => {
+    return (cross.data?.data.options ?? []).map((opt) => ({
+      name: `${opt.ano} · ${opt.label}`,
+      votos: opt.qt_votos_validos,
+      pct: opt.pct_validos,
+      fill: opt.color || '#16325c',
+    }))
+  }, [cross.data])
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-slate-900">Comparar candidaturas</h1>
+      <div>
+        <h1 className="text-xl font-semibold text-slate-900">Comparar</h1>
+        <p className="mt-1 max-w-3xl text-sm text-slate-600">
+          Escolha duas candidaturas de qualquer ano publicado — por exemplo Lula 2026 × Lula 2022, ou Flávio 2026 × Lula
+          2022. Cada lado usa os válidos daquele ano. Partido 2022 × 2026 fica na outra aba, neste mesmo recorte.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button variant={painel === 'candidaturas' ? 'primary' : 'secondary'} onClick={() => patchCompare({ painel: 'candidaturas' })}>
+          Candidaturas
+        </Button>
+        <Button variant={painel === 'partidos' ? 'primary' : 'secondary'} onClick={() => patchCompare({ painel: 'partidos' })}>
+          Partidos 2022 × 2026
+        </Button>
+      </div>
       <Filters />
-      {!ready && needsUf(scope.cargo) && <EmptyBlock>Para este cargo informe a UF.</EmptyBlock>}
-      {ranking.isPending && <LoadingBlock />}
-      {ranking.isError && <ErrorBlock error={ranking.error} />}
-      {ranking.data && (
-        <fieldset>
-          <legend className="mb-2 text-sm font-medium">Até 3 candidaturas da mesma disputa</legend>
-          <div className="grid max-h-64 gap-1 overflow-auto rounded-md border border-slate-200 bg-white p-2 text-sm">
-            {ranking.data.data.filter((row) => row.kind === 'candidatura').map((row) => (
-              <label key={row.option_id} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={selected.includes(String(row.option_id))}
-                  onChange={() => toggle(String(row.option_id))}
-                />
-                {row.nr_votavel} — {row.label} ({row.sg_partido ?? 's/ partido'})
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      )}
-      {selected.length === 0 && <EmptyBlock>Selecione ao menos uma candidatura para comparar.</EmptyBlock>}
-      {compare.isPending && selected.length > 0 && <LoadingBlock />}
-      {compare.isError && <ErrorBlock error={compare.error} />}
-      {compare.data && (
+      {painel === 'partidos' ? (
+        <PartyComparePanel embedded />
+      ) : (
         <>
-          <SourceMeta meta={compare.data.meta} />
-          <div className="h-72 rounded-lg border border-slate-200 bg-white p-3" aria-hidden>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis />
-                <Tooltip formatter={(value) => formatInt(Number(value))} />
-                <Legend />
-                <Bar dataKey="votos" name="Votos válidos" fill="#1d4ed8" />
-              </BarChart>
-            </ResponsiveContainer>
+          {!ready && needsUf(scope.cargo) && (
+            <EmptyBlock>Para comparar este cargo informe a UF no filtro — não existe disputa nacional.</EmptyBlock>
+          )}
+          <div className="grid gap-3 lg:grid-cols-2">
+            <CandidatePicker
+              label="Lado A"
+              ano={aAno}
+              optionId={aOption}
+              rankingAno={aAno}
+              scope={scope}
+              onAno={(ano) => patchCompare({ a_ano: String(ano), a_option: '' })}
+              onOption={(id) => patchCompare({ a_option: id })}
+            />
+            <CandidatePicker
+              label="Lado B"
+              ano={bAno}
+              optionId={bOption}
+              rankingAno={bAno}
+              scope={scope}
+              onAno={(ano) => patchCompare({ b_ano: String(ano), b_option: '' })}
+              onOption={(id) => patchCompare({ b_option: id })}
+            />
           </div>
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-            <table className="min-w-full text-left text-sm">
-              <caption className="sr-only">Comparação por município</caption>
-              <thead className="text-xs uppercase text-slate-500">
-                <tr>
-                  <th className="px-2 py-2">Município</th>
-                  <th className="px-2 py-2">UF</th>
-                  {compare.data.data.options.map((opt) => (
-                    <th key={opt.option_id} className="px-2 py-2">{opt.label} (% válidos)</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {compare.data.data.municipalities.slice(0, 200).map((mun) => (
-                  <tr key={mun.cd_municipio_tse} className="border-t border-slate-100">
-                    <td className="px-2 py-1.5">{mun.nm_municipio}</td>
-                    <td className="px-2 py-1.5">{mun.sg_uf}</td>
-                    {compare.data.data.options.map((opt) => {
-                      const value = mun.values[String(opt.option_id)]
-                      return (
-                        <td key={opt.option_id} className="px-2 py-1.5 tabular-nums">
-                          {formatInt(value?.qt_votos_validos)} · {formatPctShort(value?.pct_validos ?? null)}
-                        </td>
-                      )
-                    })}
-                  </tr>
+          {ids.split(',').filter(Boolean).length < 2 && (
+            <EmptyBlock>Selecione uma candidatura em cada lado. Cada ano tem a própria lista — a mesma pessoa em 2022 e 2026 são escolhas distintas.</EmptyBlock>
+          )}
+          {cross.isPending && aOption && bOption && <LoadingBlock label="Comparando os dois lados…" />}
+          {cross.isError && <ErrorBlock error={cross.error} />}
+          {cross.data && (
+            <>
+              <SourceMeta meta={cross.data.meta} />
+              <div className="grid gap-3 sm:grid-cols-2">
+                {cross.data.data.options.map((opt) => (
+                  <article key={opt.option_id} className="flex gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <CandidatePhoto
+                      name={opt.label}
+                      ano={opt.ano}
+                      cdEleicao={opt.cd_eleicao}
+                      sgUe={opt.sg_ue}
+                      sqCandidato={opt.sq_candidato}
+                      color={opt.color}
+                      size={72}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        {opt.ano} · {opt.sg_partido ?? 's/ partido'} — {opt.nr_votavel}
+                      </p>
+                      <h2 className="mt-1 text-lg font-semibold text-atlas-900">{opt.label}</h2>
+                      <p className="mt-2 text-3xl font-semibold tabular-nums">{formatPctShort(opt.pct_validos)}</p>
+                      <p className="text-sm tabular-nums text-slate-600">
+                        {formatInt(opt.qt_votos_validos)} votos válidos de {formatInt(opt.qt_total_votos_validos)}
+                      </p>
+                      {opt.ds_sit_tot_turno && (
+                        <p className="mt-2 text-xs text-slate-500">Situação oficial: {opt.ds_sit_tot_turno}</p>
+                      )}
+                    </div>
+                  </article>
                 ))}
-              </tbody>
-            </table>
-          </div>
-          {compare.data.data.municipalities.length > 200 && (
-            <p className="text-xs text-slate-500">Exibindo os 200 primeiros municípios da resposta da API.</p>
+              </div>
+              <div className="h-72 min-w-0 rounded-2xl border border-slate-200 bg-white p-3" aria-hidden>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                    <YAxis />
+                    <Tooltip formatter={(value) => formatInt(Number(value))} />
+                    <Legend />
+                    <Bar dataKey="votos" name="Votos válidos">
+                      {chartData.map((row) => (
+                        <Cell key={row.name} fill={row.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+                <table className="min-w-full text-left text-sm">
+                  <caption className="sr-only">Comparação territorial dos dois lados</caption>
+                  <thead className="text-xs uppercase text-slate-500">
+                    <tr>
+                      <th className="px-2 py-2">{cross.data.data.level === 'uf' ? 'UF' : 'Município'}</th>
+                      <th className="px-2 py-2">A % válidos</th>
+                      <th className="px-2 py-2">B % válidos</th>
+                      <th className="px-2 py-2">Δ pp</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cross.data.data.places.slice(0, 200).map((place) => (
+                      <tr
+                        key={place.place_id}
+                        className="cursor-pointer border-t border-slate-100 hover:bg-atlas-50"
+                        onClick={() => {
+                          if (cross.data?.data.level === 'uf') update({ uf: place.sg_uf, municipio: '' })
+                          else if (place.cd_municipio_tse) update({ uf: place.sg_uf, municipio: place.cd_municipio_tse })
+                        }}
+                      >
+                        <td className="px-2 py-1.5">{place.nome} ({place.sg_uf})</td>
+                        <td className="px-2 py-1.5 tabular-nums">{formatPctShort(place.a.pct_validos)}</td>
+                        <td className="px-2 py-1.5 tabular-nums">{formatPctShort(place.b.pct_validos)}</td>
+                        <td className="px-2 py-1.5 tabular-nums">{formatSigned(place.delta_pp, 'pp')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {cross.data.data.places.length > 200 && (
+                <p className="text-xs text-slate-500">Exibindo os 200 primeiros territórios da resposta da API.</p>
+              )}
+            </>
           )}
         </>
       )}

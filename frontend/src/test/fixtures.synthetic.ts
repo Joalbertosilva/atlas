@@ -28,6 +28,15 @@ export const SYNTHETIC_OFFICES: Envelope<Office[]> = {
       seats: { BR: 1 },
     },
     {
+      cd_cargo: '3',
+      ds_cargo: 'Cargo sintético estadual majoritário',
+      system: 'majoritario',
+      scope: 'estadual',
+      cd_eleicao: '0001',
+      turnos: [1],
+      seats: { XX: 1 },
+    },
+    {
       cd_cargo: '5',
       ds_cargo: 'Cargo sintético estadual A',
       system: 'majoritario',
@@ -231,6 +240,42 @@ export const SYNTHETIC_MUNICIPALITIES: Envelope<LeaderMunicipality[]> = {
         { option_id: null, label: 'Sem dados', color: '#e5e7eb', municipios: 1 },
       ],
     } satisfies LeaderLegend,
+  },
+}
+
+export const SYNTHETIC_UF_LEADERS: Envelope<LeaderMunicipality[]> = {
+  data: [
+    {
+      cd_municipio_tse: '',
+      cd_municipio_ibge: null,
+      nm_municipio: 'Unidade sintética',
+      sg_uf: 'XX',
+      is_exterior: false,
+      leader: {
+        option_id: 301,
+        label: 'Opção sintética Gama',
+        color: '#1d4ed8',
+        qt_votos_validos: 90,
+        pct_validos: 60,
+        sq_candidato: '000000000001',
+        cd_eleicao: '0001',
+        sg_ue: 'XX',
+        ds_sit_tot_turno: 'situação oficial sintética',
+      },
+      second: { option_id: 302, label: 'Opção sintética Delta', color: '#dc2626', qt_votos_validos: 60, pct_validos: 40 },
+      tie: false,
+      tied_option_ids: [],
+      margin_votes: 30,
+      margin_pp: 20,
+      qt_total_votos_validos: 150,
+    },
+  ],
+  meta: {
+    legend: {
+      type: 'categorical',
+      items: [{ option_id: 301, label: 'Opção sintética Gama', color: '#1d4ed8', municipios: 1 }],
+    } satisfies LeaderLegend,
+    coverage: { notes: ['Cada cor é a candidatura com mais votos válidos naquela UF.'] },
   },
 }
 

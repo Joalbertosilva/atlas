@@ -20,5 +20,13 @@ vi.mock('maplibre-gl', () => {
       throw new Error('MapLibre indisponível no ambiente de teste sintético')
     }
   }
-  return { Map, NavigationControl: class {}, Popup: class {} }
+  class LngLatBounds {
+    extend() {
+      return this
+    }
+    isEmpty() {
+      return true
+    }
+  }
+  return { Map, NavigationControl: class {}, Popup: class {}, LngLatBounds }
 })

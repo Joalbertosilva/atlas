@@ -12,7 +12,7 @@ import {
   useZones,
 } from '../hooks/useAtlasQueries'
 import { useScopeParams } from '../hooks/useScopeParams'
-import { formatInt, formatPctShort } from '../lib/format'
+import { formatInt, formatPctShort, kindLabel } from '../lib/format'
 
 function unidentified(linkStatus?: string | null, placeName?: string | null) {
   return !placeName || (linkStatus && linkStatus !== 'confirmado')
@@ -231,7 +231,7 @@ export default function ExplorePage() {
                   {sectionResults.data.data.results.map((row) => (
                     <tr key={row.option_id} className={row.kind !== 'candidatura' ? 'italic text-slate-600' : ''}>
                       <td className="px-2 py-1.5">{row.label}</td>
-                      <td className="px-2 py-1.5">{row.kind}</td>
+                      <td className="px-2 py-1.5">{kindLabel(row.kind)}</td>
                       <td className="px-2 py-1.5">{formatInt(row.qt_votos)}</td>
                     </tr>
                   ))}

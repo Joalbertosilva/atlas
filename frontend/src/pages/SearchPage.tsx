@@ -4,6 +4,7 @@ import { searchPost } from '../api/client'
 import type { Envelope, RegisteredPoll, SearchHit } from '../api/types'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../components/QueryState'
 import { formatDateTime, formatTime } from '../lib/format'
+import { useScopeParams } from '../hooks/useScopeParams'
 
 type Tab = 'web' | 'news' | 'pesquisas' | 'checagens'
 
@@ -30,10 +31,11 @@ function factCheckLabel(status?: string, metaStatus?: string) {
 
 export function SearchPageInner({ forceTab }: { forceTab?: Tab }) {
   const [params, setParams] = useSearchParams()
+  const { scope } = useScopeParams()
   const tab = forceTab ?? tabFromAba(params.get('aba'))
   const [q, setQ] = useState('')
-  const [uf, setUf] = useState('')
-  const [municipio, setMunicipio] = useState('')
+  const [uf, setUf] = useState(scope.uf)
+  const [municipio, setMunicipio] = useState(scope.municipio)
   const [candidato, setCandidato] = useState('')
   const [empresa, setEmpresa] = useState('')
   const [page, setPage] = useState(1)
@@ -116,6 +118,13 @@ export function SearchPageInner({ forceTab }: { forceTab?: Tab }) {
           Não classificamos verdadeiro ou falso. Não guardamos o texto da sua busca. Evite dado pessoal.
         </p>
       </div>
+      {(scope.uf || scope.municipio || scope.cargo !== '1') && (
+        <p className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+          Contexto herdado do recorte: cargo {scope.cargo}, {scope.turno}º turno
+          {scope.uf ? `, UF ${scope.uf}` : ''}
+          {scope.municipio ? `, município TSE ${scope.municipio}` : ''}. Você pode editar os campos abaixo antes de buscar.
+        </p>
+      )}
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="Tipos de busca">
         {TABS.map((item) => (
           <button

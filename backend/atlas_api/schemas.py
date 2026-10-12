@@ -16,6 +16,7 @@ class ScopeArgs(Schema):
     turno = fields.Integer(load_default=1, validate=validate.OneOf([1, 2]))
     uf = fields.String(load_default=None, validate=validate.Regexp(UF_RE))
     municipio = fields.String(load_default=None, validate=validate.Regexp(MUN_RE))
+    ano = fields.Integer(load_default=2026, validate=validate.OneOf([2022, 2026]))
 
 
 class RankingArgs(ScopeArgs, Paging):
@@ -23,8 +24,15 @@ class RankingArgs(ScopeArgs, Paging):
     format = fields.String(load_default="json", validate=validate.OneOf(["json", "csv"]))
 
 
+class UfLeadersArgs(Schema):
+    cargo = fields.String(required=True, validate=validate.OneOf(CARGOS))
+    turno = fields.Integer(load_default=1, validate=validate.OneOf([1, 2]))
+    ano = fields.Integer(load_default=2026, validate=validate.OneOf([2022, 2026]))
+
+
 class MunicipalityResultsArgs(ScopeArgs):
     mode = fields.String(load_default="leader", validate=validate.OneOf(["leader", "candidate"]))
+    level = fields.String(load_default="municipio", validate=validate.OneOf(["municipio", "uf"]))
     option_id = fields.Integer(load_default=None, validate=validate.Range(min=1))
     format = fields.String(load_default="json", validate=validate.OneOf(["json", "csv"]))
 
@@ -36,6 +44,15 @@ class MunicipalityResultsArgs(ScopeArgs):
 
 class CompareArgs(ScopeArgs):
     option_ids = fields.String(required=True, validate=validate.Regexp(r"^[0-9]{1,9}(,[0-9]{1,9}){0,2}$"))
+
+
+class CrossCompareArgs(ScopeArgs):
+    option_ids = fields.String(required=True, validate=validate.Regexp(r"^[0-9]{1,9},[0-9]{1,9}$"))
+
+
+class PartyCompareArgs(ScopeArgs):
+    metrica = fields.String(load_default="nominais", validate=validate.OneOf(["nominais", "legenda", "ambos"]))
+    nr_partido = fields.String(load_default=None, validate=validate.Regexp(r"^[0-9]{1,6}$"))
 
 
 class TurnoCargoArgs(Schema):
@@ -84,4 +101,16 @@ class PollSearchArgs(SearchArgs):
     empresa = fields.String(load_default=None, validate=validate.Length(min=2, max=80))
     de = fields.Date(load_default=None)
     ate = fields.Date(load_default=None)
-    page_size = fields.Integer(load_default=20, validate=validate.Range(min=1, max=100))
+    janela = fields.String(load_default="todas", validate=validate.OneOf(["todas", "1", "2"]))
+    page_size = fields.Integer(load_default=20, validate=validate.Range(min=1, max=200))
+
+
+class PollStatsArgs(Schema):
+    uf = fields.String(load_default=None, validate=validate.Regexp(UF_RE))
+    cargo = fields.String(load_default=None, validate=validate.Length(min=2, max=40))
+    empresa = fields.String(load_default=None, validate=validate.Length(min=2, max=80))
+    janela = fields.String(load_default="todas", validate=validate.OneOf(["todas", "1", "2"]))
+
+
+class PollLeituraArgs(Schema):
+    cargo = fields.String(load_default=None, validate=validate.OneOf(CARGOS))

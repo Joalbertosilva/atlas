@@ -12,8 +12,11 @@ Licença TSE: Creative Commons Atribuição (metadados CKAN). IBGE: dados públi
 | [pesquisas-eleitorais-2026](https://dadosabertos.tse.jus.br/dataset/pesquisas-eleitorais-2026) | CSV de registro (sem percentuais). |
 | [códigos TSE–IBGE](https://dadosabertos.tse.jus.br/dataset/codigos-oficiais-de-uf-e-municipios-segundo-o-tse-e-o-ibge) | `municipio_tse_ibge.zip`. |
 | Malhas IBGE v3 | `qualidade=minima`, `intrarregiao=municipio` e `UF`. |
+| Fotos de candidatura | 2026: portal de resultados `https://resultados.tse.jus.br/oficial/ele2026/{cd_eleicao}/fotos/{ue}/{sq_candidato}.jpeg` (Presidente `6257`/`br`; Governador SP `6259`/`sp`) → `image/jpeg`. 2022: o mesmo caminho 404; o TSE publica os JPEG no ZIP `https://cdn.tse.jus.br/estatistica/sead/eleicoes/eleicoes2022/fotos/foto_cand2022_{UE}_div.zip` (arquivo `F{UE}{sq}_div.jpg\|jpeg`). A API extrai e serve em `/api/photos/2022/{UE}/{sq}`. |
 
 URLs canônicas: `data/manifests/tse_2026.yaml`. `atlas-etl discover` compara CKAN × HEAD do CDN.
+
+Resultados de **2022** estão no manifesto e **importados** (`consulta_cand_2022`, munzona cand/partido/detalhe). Importação: `atlas-etl import … --ano 2022`. Escopos `munzona_cand:2022:BR` etc. não substituem 2026. A UI de comparação é `/comparar` (não uma seção à parte). Ausência ≠ zero.
 
 ## Arquivos que o ETL usa
 

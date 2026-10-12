@@ -74,6 +74,36 @@ resources:
     listed_in_catalog: true
     description: Cadastro de pesquisas eleitorais registradas (sem resultados percentuais).
 
+  # Comparativo 2022: munzona + cadastro. Escopos de publicação são ano-qualificados
+  # (munzona_cand:2022:BR) para não substituir a publicação de 2026.
+  - key: consulta_cand_2022
+    dataset: candidatos-2022
+    kind: consulta_cand
+    url: https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_2022.zip
+    listed_in_catalog: true
+    description: Cadastro de candidaturas 2022 (campos pessoais sensíveis não são importados).
+
+  - key: detalhe_votacao_munzona_2022
+    dataset: resultados-2022
+    kind: detalhe_munzona
+    url: https://cdn.tse.jus.br/estatistica/sead/odsele/detalhe_votacao_munzona/detalhe_votacao_munzona_2022.zip
+    listed_in_catalog: true
+    description: Aptos, comparecimento, brancos, nulos e válidos por município/zona e cargo (2022).
+
+  - key: votacao_candidato_munzona_2022
+    dataset: resultados-2022
+    kind: munzona_cand
+    url: https://cdn.tse.jus.br/estatistica/sead/odsele/votacao_candidato_munzona/votacao_candidato_munzona_2022.zip
+    listed_in_catalog: true
+    description: Votos nominais por candidatura, município e zona (2022).
+
+  - key: votacao_partido_munzona_2022
+    dataset: resultados-2022
+    kind: munzona_partido
+    url: https://cdn.tse.jus.br/estatistica/sead/odsele/votacao_partido_munzona/votacao_partido_munzona_2022.zip
+    listed_in_catalog: true
+    description: Votos de legenda por partido, município e zona (2022).
+
   - key: relatorio_totalizacao_2026_BR
     dataset: resultados-2026
     kind: relatorio_pdf

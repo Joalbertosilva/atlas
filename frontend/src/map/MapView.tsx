@@ -1,6 +1,9 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { CandidateMunicipality, GeometryProperties, LeaderMunicipality, SequentialLegend } from '../api/types'
-import { NO_DATA_COLOR, TIE_COLOR, fillForLeaderRow, marginFill, sequentialFill } from '../lib/mapColors'
+import { Button } from '../components/Ui'
+import { TIE_COLOR } from '../lib/mapColors'
+import MapLibreView, { webglAvailable } from './MapLibreView'
+import { isLeaderRow, paintCollection } from './paintCollection'
 import SvgChoropleth from './SvgChoropleth'
 
 type Props = {
@@ -8,154 +11,103 @@ type Props = {
   rows: Array<LeaderMunicipality | CandidateMunicipality>
   mode: 'leader' | 'candidate' | 'margin'
   bands?: SequentialLegend['bands']
-  onSelectMunicipio?: (tse: string, uf: string) => void
+  candidateColor?: string
+  onSelectMunicipio?: (tse: string, uf: string, ibge?: string) => void
   onSelectUf?: (uf: string) => void
   flyToIbge?: string | null
+  selectedId?: string | null
 }
 
-type PaintedProps = GeometryProperties & { fill: string }
+export default function MapView({ geometry, rows, mode, bands, candidateColor, onSelectMunicipio, onSelectUf, flyToIbge, selectedId }: Props) {
+  const [engine, setEngine] = useState<'2d' | '3d'>(webglAvailable() ? '3d' : '2d')
+  const [glFailed, setGlFailed] = useState(false)
 
-function isLeader(row: LeaderMunicipality | CandidateMunicipality): row is LeaderMunicipality {
-  return 'leader' in row
-}
+  const painted = useMemo(
+    () => paintCollection(geometry, rows, mode, bands, candidateColor),
+    [geometry, rows, mode, bands, candidateColor],
+  )
 
-function parseGeometry(raw: unknown): GeoJSON.Geometry | null {
-  if (!raw) return null
-  if (typeof raw === 'string') {
-    try {
-      return parseGeometry(JSON.parse(raw))
-    } catch {
-      return null
-    }
-  }
-  if (typeof raw !== 'object' || !('type' in raw)) return null
-  return raw as GeoJSON.Geometry
-}
-
-function toFillGeom(raw: unknown): GeoJSON.Polygon | GeoJSON.MultiPolygon | null {
-  const geometry = parseGeometry(raw)
-  if (!geometry) return null
-  if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') return geometry
-  if (geometry.type === 'GeometryCollection') {
-    const coords: GeoJSON.Position[][][] = []
-    for (const part of geometry.geometries) {
-      if (part.type === 'Polygon') coords.push(part.coordinates)
-      if (part.type === 'MultiPolygon') coords.push(...part.coordinates)
-    }
-    if (coords.length === 0) return null
-    return { type: 'MultiPolygon', coordinates: coords }
-  }
-  return null
-}
-
-export default function MapView({ geometry, rows, mode, bands, onSelectMunicipio, onSelectUf }: Props) {
-  const byIbge = useMemo(() => {
-    const map = new Map<string, LeaderMunicipality | CandidateMunicipality>()
+  const legend = useMemo(() => {
+    const counts = new Map<string, { label: string; color: string; n: number }>()
     for (const row of rows) {
-      if (row.is_exterior || !row.cd_municipio_ibge) continue
-      map.set(String(row.cd_municipio_ibge), row)
+      if (!isLeaderRow(row) || !row.leader || row.is_exterior || row.tie) continue
+      const key = String(row.leader.option_id)
+      const cur = counts.get(key) ?? { label: row.leader.label, color: row.leader.color || TIE_COLOR, n: 0 }
+      cur.n += 1
+      counts.set(key, cur)
     }
-    return map
+    return [...counts.values()].sort((a, b) => b.n - a.n).slice(0, 8)
   }, [rows])
 
-  const maxMargin = useMemo(() => {
-    return rows.reduce((max, row) => {
-      if (!isLeader(row) || row.margin_pp == null) return max
-      return Math.max(max, row.margin_pp)
-    }, 0)
-  }, [rows])
-
-  const colorByUf = useMemo(() => {
-    const tally = new Map<string, Map<string, { votes: number; color: string }>>()
-    const candidateVotes = new Map<string, { got: number; total: number }>()
-    for (const row of rows) {
-      if (row.is_exterior || !row.sg_uf) continue
-      if (mode === 'leader' && isLeader(row) && row.leader) {
-        const byOpt = tally.get(row.sg_uf) ?? new Map()
-        const key = String(row.leader.option_id)
-        const cur = byOpt.get(key) ?? { votes: 0, color: row.leader.color || TIE_COLOR }
-        cur.votes += row.leader.qt_votos_validos ?? 0
-        byOpt.set(key, cur)
-        tally.set(row.sg_uf, byOpt)
-      } else if (mode === 'candidate' && !isLeader(row)) {
-        const cur = candidateVotes.get(row.sg_uf) ?? { got: 0, total: 0 }
-        cur.got += row.qt_votos_validos ?? 0
-        cur.total += row.qt_total_votos_validos ?? 0
-        candidateVotes.set(row.sg_uf, cur)
-      }
-    }
-    const colors: Record<string, string> = {}
-    if (mode === 'candidate') {
-      for (const [uf, value] of candidateVotes) {
-        colors[uf] = sequentialFill(value.total > 0 ? (100 * value.got) / value.total : null, bands ?? [])
-      }
-    } else {
-      for (const [uf, byOpt] of tally) {
-        let best: { votes: number; color: string } | null = null
-        for (const item of byOpt.values()) {
-          if (!best || item.votes > best.votes) best = item
-        }
-        colors[uf] = best?.color ?? NO_DATA_COLOR
-      }
-    }
-    return colors
-  }, [rows, mode, bands])
-
-  const colorByIbge = useMemo(() => {
-    const colors: Record<string, string> = {}
-    for (const [ibge, row] of byIbge) {
-      if (mode === 'leader' && isLeader(row)) colors[ibge] = fillForLeaderRow(row)
-      else if (mode === 'candidate' && !isLeader(row)) colors[ibge] = sequentialFill(row.pct_validos, bands ?? [])
-      else if (mode === 'margin' && isLeader(row)) colors[ibge] = marginFill(row.margin_pp, maxMargin)
-      else colors[ibge] = NO_DATA_COLOR
-    }
-    return colors
-  }, [byIbge, mode, bands, maxMargin])
-
-  const painted = useMemo(() => {
-    const seen = new Set<string>()
-    const features: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon, PaintedProps>[] = []
-    for (const feature of geometry.features) {
-      const shape = toFillGeom(feature.geometry)
-      if (!shape) continue
-      const ibge = feature.properties?.cd_municipio_ibge != null
-        ? String(feature.properties.cd_municipio_ibge)
-        : ''
-      const uf = feature.properties?.sg_uf ? String(feature.properties.sg_uf) : ''
-      const id = ibge || uf
-      if (!id || seen.has(id)) continue
-      seen.add(id)
-      features.push({
-        type: 'Feature',
-        id,
-        geometry: shape,
-        properties: {
-          ...feature.properties,
-          cd_municipio_ibge: ibge || undefined,
-          sg_uf: uf || feature.properties?.sg_uf,
-          fill: ibge ? (colorByIbge[ibge] || NO_DATA_COLOR) : (colorByUf[uf] || NO_DATA_COLOR),
-        },
-      })
-    }
-    return { type: 'FeatureCollection' as const, features }
-  }, [geometry, colorByIbge, colorByUf])
+  const gl = webglAvailable()
+  const view = engine === '3d' && gl && !glFailed ? '3d' : 'svg'
 
   return (
     <div className="space-y-2">
-      <SvgChoropleth
-        collection={painted}
-        onSelectMunicipio={onSelectMunicipio}
-        onSelectUf={onSelectUf}
-      />
+      {legend.length > 0 && (
+        <ul className="flex flex-wrap gap-3 text-xs text-slate-700">
+          {legend.map((item) => (
+            <li key={item.label} className="inline-flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-sm ring-1 ring-slate-300" style={{ background: item.color }} aria-hidden />
+              {item.label}
+            </li>
+          ))}
+          <li className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-sm ring-1 ring-slate-300" style={{ background: TIE_COLOR }} aria-hidden />
+            Empate
+          </li>
+        </ul>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button variant={engine === '2d' ? 'primary' : 'secondary'} onClick={() => setEngine('2d')}>
+          Mapa 2D
+        </Button>
+        <Button
+          variant={engine === '3d' ? 'primary' : 'secondary'}
+          onClick={() => {
+            setGlFailed(false)
+            setEngine('3d')
+          }}
+          disabled={!gl}
+        >
+          Mapa 3D
+        </Button>
+      </div>
+      {view === '3d' ? (
+        <MapLibreView
+          collection={painted}
+          mode="3d"
+          grain={
+            painted.features[0]?.properties?.cd_municipio_ibge
+              ? selectedId
+                ? 'local'
+                : 'municipio'
+              : 'uf'
+          }
+          selectedId={selectedId}
+          onFail={() => setGlFailed(true)}
+          onSelectMunicipio={onSelectMunicipio}
+          onSelectUf={onSelectUf}
+          flyToId={flyToIbge}
+        />
+      ) : (
+        <SvgChoropleth
+          collection={painted}
+          onSelectMunicipio={onSelectMunicipio}
+          onSelectUf={onSelectUf}
+          highlightId={selectedId || flyToIbge}
+        />
+      )}
+      {engine === '3d' && glFailed && (
+        <p className="text-xs text-amber-800">O mapa 3D não iniciou neste navegador. O 2D abaixo usa as mesmas cores de vencedor.</p>
+      )}
       <p className="text-xs text-slate-600">
         {painted.features.length > 0
           ? painted.features[0]?.properties?.cd_municipio_ibge
-            ? `${painted.features.length} municípios no mapa (malha IBGE).`
-            : `${painted.features.length} UFs no mapa (malha IBGE). Clique num estado para ver municípios.`
-          : 'Malha sem polígonos.'}
-      </p>
-      <p className="text-xs text-slate-500">
-        Empate em {TIE_COLOR}; sem dados em {NO_DATA_COLOR}. Exterior não entra no mapa.
+            ? `${painted.features.length} municípios no mapa. Aproxime e clique para entrar no município.`
+            : `${painted.features.length} estados no mapa. Clique num estado para ver os municípios com a cor de quem venceu.`
+          : 'Ainda não há território para desenhar neste recorte.'}
+        {' '}Cada território usa a cor da candidatura que teve mais votos válidos ali. Empate em cinza-escuro; sem dados em cinza-claro. O exterior não entra no mapa.
       </p>
     </div>
   )

@@ -1,18 +1,20 @@
 import { NavLink, Outlet } from 'react-router'
+import { BrandLockup, Mark } from './Brand'
 
 const NAV = [
-  { to: '/', label: 'Início', end: true },
+  { to: '/', label: 'Resultados', end: true },
   { to: '/mapa', label: 'Mapa' },
   { to: '/explorar', label: 'Explorar' },
   { to: '/comparar', label: 'Comparar' },
-  { to: '/pesquisa', label: 'Pesquisa' },
+  { to: '/evolucao', label: 'Pesquisas' },
+  { to: '/pesquisa', label: 'Busca' },
   { to: '/cobertura', label: 'Cobertura' },
 ]
 
 function navClass({ isActive }: { isActive: boolean }) {
   return [
-    'rounded-md px-2.5 py-1.5 text-sm',
-    isActive ? 'bg-atlas-800 text-white' : 'text-slate-700 hover:bg-slate-100',
+    'inline-flex items-center rounded-md px-3 py-1.5 text-sm font-medium',
+    isActive ? 'bg-white text-atlas-900' : 'text-slate-200 hover:bg-white/10',
   ].join(' ')
 }
 
@@ -22,14 +24,15 @@ export function Layout() {
       <a className="skip-link" href="#conteudo">
         Ir para o conteúdo
       </a>
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:px-6">
-          <div>
-            <p className="text-lg font-semibold tracking-tight text-atlas-800">Atlas Eleitoral 2026</p>
-            <p className="text-sm text-slate-600">Painel independente com dados públicos do TSE e IBGE</p>
-            <p className="text-xs text-slate-500">Não é um site oficial da Justiça Eleitoral</p>
+      <header className="border-b border-slate-800 bg-atlas-900 text-white">
+        <div className="mx-auto flex max-w-7xl min-w-0 flex-col gap-4 px-4 py-4 sm:px-6">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-4">
+            <BrandLockup />
+            <p className="max-w-sm text-xs leading-relaxed text-slate-300">
+              Painel independente com dados públicos do TSE e IBGE. Não é um site oficial da Justiça Eleitoral.
+            </p>
           </div>
-          <nav aria-label="Principal" className="flex flex-wrap gap-1">
+          <nav aria-label="Principal" className="flex flex-wrap items-center gap-1">
             {NAV.map((item) => (
               <NavLink key={item.to} to={item.to} end={item.end} className={navClass}>
                 {item.label}
@@ -38,11 +41,12 @@ export function Layout() {
           </nav>
         </div>
       </header>
-      <main id="conteudo" className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+      <main id="conteudo" className="mx-auto max-w-7xl min-w-0 overflow-x-hidden px-4 py-6 sm:px-6">
         <Outlet />
       </main>
       <footer className="border-t border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-wrap gap-4 px-4 py-4 text-xs text-slate-600 sm:px-6">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-4 text-xs text-slate-600 sm:px-6">
+          <Mark className="h-6 w-6" />
           <NavLink to="/privacidade" className="underline-offset-2 hover:underline">
             Privacidade
           </NavLink>

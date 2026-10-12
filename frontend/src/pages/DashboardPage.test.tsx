@@ -9,6 +9,7 @@ import {
   SYNTHETIC_SENATOR_SUMMARY,
   SYNTHETIC_STATES,
   SYNTHETIC_SUMMARY,
+  SYNTHETIC_UF_LEADERS,
   jsonResponse,
 } from '../test/fixtures.synthetic'
 import { renderApp } from '../test/render'
@@ -24,6 +25,7 @@ function mockApi() {
       if (url.includes('/results/summary')) return jsonResponse(SYNTHETIC_SUMMARY)
       if (url.includes('/results/ranking') && url.includes('kind=todas')) return jsonResponse(SYNTHETIC_RANKING_TODAS)
       if (url.includes('/results/ranking')) return jsonResponse(SYNTHETIC_RANKING)
+      if (url.includes('/results/uf-leaders')) return jsonResponse(SYNTHETIC_UF_LEADERS)
       if (url.includes('/results/municipalities')) return jsonResponse(SYNTHETIC_MUNICIPALITIES)
       if (url.includes('/map/geometry')) {
         return jsonResponse({ type: 'FeatureCollection', features: [] })
@@ -41,9 +43,9 @@ afterEach(() => {
 
 test('dashboard renderiza ranking e mostra denominador', async () => {
   renderApp('/')
-  expect(await screen.findByRole('heading', { name: 'Resultados' })).toBeInTheDocument()
-  expect(await screen.findByText('Opção sintética Alfa')).toBeInTheDocument()
-  expect(screen.getByText('% dos votos válidos = votos válidos da opção / qt_total_votos_validos.')).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: 'Eleição 2026' })).toBeInTheDocument()
+  expect((await screen.findAllByText('Opção sintética Alfa')).length).toBeGreaterThan(0)
+  expect(screen.getByText('Porcentagem sobre o total de votos válidos deste recorte.')).toBeInTheDocument()
   expect(screen.getByText('Situação oficial (TSE)')).toBeInTheDocument()
   expect(screen.getAllByText('situação oficial sintética').length).toBeGreaterThan(0)
 })
@@ -55,9 +57,17 @@ test('aviso do Senador quando a API indica duas escolhas', async () => {
   ).toBeInTheDocument()
 })
 
+test('cargo estadual sem UF mostra o mapa por estado', async () => {
+  renderApp('/?cargo=3')
+  expect(await screen.findByText(/é disputa por UF/)).toBeInTheDocument()
+  expect(await screen.findByText('Todos os estados')).toBeInTheDocument()
+  expect(await screen.findByRole('button', { name: /Unidade sintética/ })).toBeInTheDocument()
+  expect(screen.getByText('Opção sintética Gama')).toBeInTheDocument()
+})
+
 test('branco e nulo não aparecem como candidatura no ranking padrão', async () => {
   renderApp('/')
-  expect(await screen.findByText('Opção sintética Alfa')).toBeInTheDocument()
+  expect((await screen.findAllByText('Opção sintética Alfa')).length).toBeGreaterThan(0)
   expect(screen.queryByText('Branco sintético')).not.toBeInTheDocument()
   expect(screen.queryByText('Nulo sintético')).not.toBeInTheDocument()
   await userEvent.click(screen.getByLabelText('Incluir branco, nulo e legenda'))

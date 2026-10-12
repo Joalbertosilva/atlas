@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import type { CandidateMunicipality, LeaderMunicipality } from '../api/types'
 import { formatInt, formatPctShort } from '../lib/format'
-import { TIE_COLOR, NO_DATA_COLOR, fillForLeaderRow } from '../lib/mapColors'
+import { TIE_COLOR, fillForLeaderRow, sequentialFill } from '../lib/mapColors'
 
 type SortKey = 'nm_municipio' | 'sg_uf' | 'pct' | 'votos'
 
@@ -13,9 +13,11 @@ function isLeader(row: LeaderMunicipality | CandidateMunicipality): row is Leade
 export function MunicipalityTable({
   rows,
   mode,
+  candidateColor,
 }: {
   rows: Array<LeaderMunicipality | CandidateMunicipality>
   mode: 'leader' | 'candidate' | 'margin'
+  candidateColor?: string
 }) {
   const [sort, setSort] = useState<SortKey>('nm_municipio')
   const [dir, setDir] = useState<'asc' | 'desc'>('asc')
@@ -61,7 +63,9 @@ export function MunicipalityTable({
         <tbody>
           {sorted.filter((row) => !row.is_exterior).map((row) => {
             const leader = isLeader(row) ? row.leader : null
-            const color = isLeader(row) ? fillForLeaderRow(row) : (row.pct_validos == null ? NO_DATA_COLOR : '#1d4ed8')
+            const color = isLeader(row)
+              ? fillForLeaderRow(row)
+              : sequentialFill(row.pct_validos, [{ min: 0, max: 20 }, { min: 20, max: 40 }, { min: 40, max: 60 }, { min: 60, max: 80 }, { min: 80, max: 100 }], candidateColor)
             const status = isLeader(row)
               ? row.tie
                 ? 'Empate'

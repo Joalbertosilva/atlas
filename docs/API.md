@@ -84,21 +84,44 @@ Totais do recorte (fonte: `detalhe_votacao_munzona`).
 
 ### `GET /api/results/ranking?cargo=&turno=&uf=&municipio=&kind=&page=&page_size=&format=json|csv`
 `kind`: `candidatura` (padrão) | `todas` (inclui legenda, branco, nulo).
-`data`: `[{"rank","option_id","kind","nr_votavel","label","candidacy_id","nm_candidato","sg_partido","sg_federacao","qt_votos","qt_votos_validos","pct_validos","pct_nominais","ds_sit_tot_turno","nm_tipo_destinacao_votos","color"}]`
+`data`: `[{"rank","option_id","kind","nr_votavel","label","candidacy_id","sq_candidato","cd_eleicao","sg_ue","nm_candidato","sg_partido","sg_federacao","qt_votos","qt_votos_validos","pct_validos","pct_nominais","ds_sit_tot_turno","nm_tipo_destinacao_votos","color"}]`
 - `pct_validos = qt_votos_validos / qt_total_votos_validos` (válidos incluem legenda nos proporcionais).
 - `pct_nominais = qt_votos_validos / qt_votos_nominais_validos` (somente proporcionais; `null` nos majoritários).
 - `ds_sit_tot_turno` vem do arquivo oficial; o ranking **não** define eleitos.
-- `color`: cor estável por candidatura dentro da disputa (hex).
+- `color`: cor convencional do partido da candidatura (hex). PT `#E30613`, PL `#F5C400`. Não é paleta oficial do TSE.
 
-### `GET /api/results/municipalities?cargo=&turno=&uf=&mode=leader|candidate&option_id=&format=json|csv`
-Uma linha por município do recorte (sem geometria).
+### `GET /api/results/municipalities?cargo=&turno=&uf=&mode=leader|candidate&level=municipio|uf&option_id=&format=json|csv`
+Uma linha por município **ou UF** do recorte (sem geometria). `level=uf` usa `agg.result_state` (quem venceu o estado); `level=municipio` (padrão) usa `agg.result_municipality`.
 - `mode=leader`: `{"cd_municipio_tse","cd_municipio_ibge","nm_municipio","sg_uf","is_exterior","leader": {"option_id","label","sg_partido","color","qt_votos_validos","pct_validos"} | null,"second": {...} | null,"tie": bool,"tied_option_ids": [],"margin_votes","margin_pp","qt_total_votos_validos"}`
 - `mode=candidate` (requer `option_id`): `{"cd_municipio_tse","cd_municipio_ibge","nm_municipio","sg_uf","is_exterior","qt_votos_validos","pct_validos","qt_total_votos_validos"}`
-- `meta.legend`: lista de `{option_id,label,color,municipios}` (modo líder) ou faixas `{min,max}` (modo candidato).
+- Em `level=uf`, `nm_municipio` é o nome da UF; `cd_municipio_tse`/`cd_municipio_ibge` vêm vazios — o mapa casa por `sg_uf`. ZZ não entra.
+
+### `GET /api/results/uf-leaders?cargo=&turno=&ano=`
+Uma linha por UF para cargos estaduais (governador, senador, deputados). `leader` é a candidatura com mais votos válidos naquela disputa; **não** substitui `DS_SIT_TOT_TURNO`. ZZ fora. Presidente usa `municipalities?level=uf`.
+
+### `GET /api/photos/2022/{UE}/{sq_candidato}`
+JPEG oficial extraído do ZIP `foto_cand2022_{UE}_div.zip` no CDN do TSE. 2026 continua no portal de resultados (`ele2026/{cd_eleicao}/fotos/{ue}/{sq}.jpeg`).
+- `meta.legend`: lista de `{option_id,label,color,municipios}` (modo líder; o campo conta municípios ou UFs) ou faixas `{min,max}` (modo candidato).
 - Sem dados → `leader: null`; empate → `tie: true`, `leader` = primeiro por número, `tied_option_ids` preenchido.
 
-### `GET /api/results/compare?cargo=&turno=&uf=&option_ids=1,2,3`
+Todas as rotas de recorte aceitam `ano=2022|2026` (padrão 2026).
+
+### `GET /api/results/compare?cargo=&turno=&uf=&ano=&option_ids=1,2,3`
 Até 3 opções **da mesma disputa**. `data`: `{"options":[...ranking rows],"municipalities":[{"cd_municipio_tse","nm_municipio","values":{"<option_id>":{"qt_votos_validos","pct_validos"}}}]}`
+
+### `GET /api/results/cross-compare?cargo=&turno=&uf=&option_ids=111,222`
+Duas candidaturas escolhidas independentemente (mesmo cargo e mesma UE), inclusive **anos diferentes**. `option_id` não é reaproveitado entre eleições. `data.options[]` traz `ano`, votos e `%` com o denominador daquele ano. `data.places[]`: UF (recorte nacional) ou municípios, com `a`/`b` e `delta_pp`. Ausência ≠ zero.
+
+### `GET /api/results/party-compare?cargo=&turno=&uf=&municipio=&metrica=nominais|legenda|ambos&nr_partido=`
+Comparativo partidário **2022 × 2026** no mesmo cargo, turno e território (fonte munzona / agregados).
+
+`data.years.2022|2026.available` é falso se a eleição não estiver publicada — campos de 2022 ficam `null`, **não zero**.
+
+`data.parties[]`: `votos_*`, `pct_*` (votos da métrica / `qt_total_votos_validos` do recorte), `delta_votos`, `delta_pp` (pontos percentuais), `delta_rel_pct` (variação relativa; `variacao_relativa=indisponivel` se 2022 ausente ou 0).
+
+`data.places[]`: UF (recorte nacional) ou municípios (UF selecionada). `status`: `comparavel|so_2026|so_2022|ausente`.
+
+Senado: nota de 2 escolhas em 2026 vs 1 vaga renovada em 2022. Não soma cargos. Partido identificado por `nr_partido`.
 
 ### `GET /api/municipalities/{cd_municipio_tse}/zones?cargo=&turno=`
 `data`: `[{"nr_zona","qt_aptos","qt_comparecimento","qt_total_votos_validos","qt_votos_brancos","qt_total_votos_nulos","leader":{...}|null,"sections_loaded":int}]`
@@ -134,9 +157,19 @@ e `GET` com query string. Corpo/parâmetros: `q` (2–200 caracteres), `page` (1
 ```
 
 #### `/api/search/polls`
-Busca local em `polls.registered_poll`. Filtros extras: `uf`, `cargo` (texto), `empresa`, `de`, `ate`.
+Busca local em `polls.registered_poll`. Filtros extras: `uf`, `cargo` (texto), `empresa`, `de`, `ate`, `janela=todas|1|2`.
+`janela=1` = coleta encerrada até a data do 1º turno; `janela=2` = coleta que começa depois dessa data.
 `data`: `[{"nr_protocolo_registro","sg_uf","nm_ue","nm_empresa","nm_empresa_fantasia","ds_cargo","dt_registro","dt_inicio_pesquisa","dt_fim_pesquisa","dt_divulgacao","qt_entrevistado","vr_pesquisa","pesqele_url","status":"registro_oficial_encontrado"}]`
 Nenhum percentual de intenção de voto é retornado (o cadastro não contém).
+
+#### `/api/search/polls/stats`
+Contagens do mesmo cadastro (sem percentuais). `data`: `{total, institutos, amostra, dt_primeiro_turno, dt_segundo_turno, janela, por_mes[], por_cargo[], institutos_top[]}`.
+
+#### `GET /api/search/polls/{protocolo}`
+Ficha do cadastro (metodologia, amostra, datas). Sem CPF/estatístico. Sem percentuais.
+
+#### `POST /api/search/polls/{protocolo}/leitura`
+Corpo opcional `{cargo}`. Busca notícias públicas (SearXNG) sobre aquele protocolo/instituto e tenta casar percentuais citados nos trechos com candidaturas oficiais do recorte. `data`: `{poll, janela, mencoes[], urna[], confronto[]|null, hits[]}`. `confronto` só no 1º turno quando há menção e urna. Não é o arquivo de resultados do instituto.
 
 #### `/api/search/fact-checks`
 `data`: `[{"title","url","domain","publisher","snippet","published_at","status":"possivel_checagem_relacionada|checagem_publicada_identificada","rating":null}]`

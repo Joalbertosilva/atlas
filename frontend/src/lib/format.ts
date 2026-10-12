@@ -20,11 +20,33 @@ export function formatPctShort(value: number | null | undefined): string {
   return `${percentFmt.format(value)}%`
 }
 
+export function formatSigned(value: number | null | undefined, kind: 'int' | 'pp' | 'pct' = 'int'): string {
+  if (value === null || value === undefined) return '—'
+  const sign = value > 0 ? '+' : ''
+  if (kind === 'int') return `${sign}${numberFmt.format(value)}`
+  return `${sign}${percentFmt.format(value)}${kind === 'pp' ? ' pp' : '%'}`
+}
+
 export function formatDateTime(value: string | null | undefined, missing = 'não informado'): string {
   if (!value) return missing
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return missing
   return dateTimeFmt.format(date)
+}
+
+export function kindLabel(kind: string | null | undefined): string {
+  switch (kind) {
+    case 'candidatura':
+      return 'Candidatura'
+    case 'legenda':
+      return 'Legenda do partido'
+    case 'branco':
+      return 'Branco'
+    case 'nulo':
+      return 'Nulo'
+    default:
+      return kind || '—'
+  }
 }
 
 export function formatTime(value: string | null | undefined): string | null {

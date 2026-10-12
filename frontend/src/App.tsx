@@ -8,6 +8,8 @@ import PrivacyPage from './pages/PrivacyPage'
 import SearchPage, { SearchPollsRedirect } from './pages/SearchPage'
 import ComparePage from './pages/ComparePage'
 import ExplorePage from './pages/ExplorePage'
+import PollsPage from './pages/PollsPage'
+import PollDetailPage from './pages/PollDetailPage'
 
 const MapPage = lazy(() => import('./pages/MapPage'))
 
@@ -26,6 +28,9 @@ export function AppRoutes() {
         />
         <Route path="explorar" element={<ExplorePage />} />
         <Route path="comparar" element={<ComparePage />} />
+        <Route path="historico" element={<Navigate to="/comparar?painel=partidos" replace />} />
+        <Route path="evolucao" element={<PollsPage />} />
+        <Route path="evolucao/:protocolo" element={<PollDetailPage />} />
         <Route path="pesquisa" element={<SearchPage />} />
         <Route path="pesquisas" element={<SearchPollsRedirect />} />
         <Route path="cobertura" element={<CoveragePage />} />

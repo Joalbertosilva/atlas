@@ -5,8 +5,8 @@ import { SENATOR_CARGO } from '../lib/scope'
 function Card({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900">{value}</p>
+      <p className="text-xs font-medium uppercase leading-tight tracking-wide text-slate-500">{label}</p>
+      <p className="mt-1 break-all text-xl font-semibold tabular-nums text-slate-900">{value}</p>
       {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
     </div>
   )
@@ -17,7 +17,7 @@ function TurnoutGrid({ block, title }: { block: TurnoutBlock; title?: string }) 
     <section>
       {title && <h3 className="mb-2 text-sm font-semibold text-slate-800">{title}</h3>}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-        <Card label="Aptos" value={formatInt(block.qt_aptos)} hint="Denominador do comparecimento" />
+        <Card label="Eleitores aptos" value={formatInt(block.qt_aptos)} hint="Quem podia votar neste recorte" />
         <Card
           label="Comparecimento"
           value={formatInt(block.qt_comparecimento)}

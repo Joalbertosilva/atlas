@@ -16,9 +16,10 @@ def test_manifest_only_official_hosts():
     assert resources
     for r in resources:
         assert r.url.startswith(("https://cdn.tse.jus.br/", "https://servicodados.ibge.gov.br/"))
-        assert "2022" not in r.url or r.kind.startswith("ibge")
+        if "2022" in r.url and not r.kind.startswith("ibge"):
+            assert "2022" in r.key
         if r.kind != "ibge_malha_municipio" and r.kind != "ibge_malha_uf":
-            assert "2026" in r.url or r.key == "municipio_tse_ibge"
+            assert "2026" in r.url or "2022" in r.url or r.key == "municipio_tse_ibge"
 
 
 def test_manifest_does_not_claim_catalog_for_cdn_only_results():
